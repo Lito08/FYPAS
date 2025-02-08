@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Manage Enrollments</h2>
+
+<a href="{% url 'enroll_student' %}" class="btn btn-success">Enroll a Student</a>
+
+<table class="table mt-3">
+    <thead>
+        <tr>
+            <th>Student</th>
+            <th>Section</th>
+            <th>Course</th>
+            <th>Schedule</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for enrollment in enrollments %}
+        <tr>
+            <td>{{ enrollment.student.first_name }} {{ enrollment.student.last_name }} ({{ enrollment.student.matric_id }})</td>
+            <td>{{ enrollment.section.section_type }} {{ enrollment.section.section_number }}</td>
+            <td>{{ enrollment.section.course.code }} - {{ enrollment.section.course.name }}</td>
+            <td>{{ enrollment.section.schedule|default:"Not Set" }}</td>
+            <td>
+                <a href="{% url 'unenroll_student' enrollment.id %}" class="btn btn-danger btn-sm">Unenroll</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endblock %}

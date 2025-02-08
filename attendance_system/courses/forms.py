@@ -49,3 +49,18 @@ class EnrollmentForm(forms.ModelForm):
     class Meta:
         model = Enrollment
         fields = ['student', 'section']
+
+    def clean(self):
+        """Run additional validation for student schedule conflicts."""
+        cleaned_data = super().clean()
+        student = cleaned_data.get("student")
+        section = cleaned_data.get("section")
+
+        if student and section:
+            try:
+                enrollment = Enrollment(student=student, section=section)
+                enrollment.clean()  # Call the model validation
+            except forms.ValidationError as e:
+                raise forms.ValidationError(e)
+
+        return cleaned_data

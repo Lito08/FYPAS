@@ -7,6 +7,7 @@
 {% if user.role == "Superadmin" or user.role == "Admin" %}
     <a href="{% url 'manage_users' %}" class="btn btn-primary">Manage Users</a>
     <a href="{% url 'manage_courses' %}" class="btn btn-primary">Manage Courses</a>
+    <a href="{% url 'manage_enrollments' %}" class="btn btn-primary">Manage Enrollments</a>
     
     {% if user.role == "Superadmin"%}
         <p>You are a Superadmin. Oversee the system and manage lecturers and students.</p>

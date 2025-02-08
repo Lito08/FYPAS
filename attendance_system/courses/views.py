@@ -107,7 +107,15 @@ def delete_section_view(request, section_id):
     messages.success(request, "Section deleted successfully!")
     return redirect('manage_sections')
 
-# 🔹 ENROLL STUDENTS INTO SECTIONS
+# 🔹 MANAGE ENROLLMENT
+@login_required(login_url='/users/login/')
+def manage_enrollments_view(request):
+    if request.user.role not in ['Superadmin', 'Admin']:
+        return render(request, 'access_denied.html')
+
+    enrollments = Enrollment.objects.all()
+    return render(request, 'courses/manage_enrollments.html', {'enrollments': enrollments})
+
 @login_required(login_url='/users/login/')
 def enroll_student_view(request):
     if request.user.role not in ['Superadmin', 'Admin']:
@@ -118,8 +126,18 @@ def enroll_student_view(request):
         if form.is_valid():
             form.save()
             messages.success(request, "Student enrolled successfully!")
-            return redirect('manage_sections')
+            return redirect('manage_enrollments')
     else:
         form = EnrollmentForm()
 
     return render(request, 'courses/enroll_student.html', {'form': form})
+
+@login_required(login_url='/users/login/')
+def unenroll_student_view(request, enrollment_id):
+    if request.user.role not in ['Superadmin', 'Admin']:
+        return render(request, 'access_denied.html')
+
+    enrollment = get_object_or_404(Enrollment, id=enrollment_id)
+    enrollment.delete()
+    messages.success(request, "Student unenrolled successfully!")
+    return redirect('manage_enrollments')

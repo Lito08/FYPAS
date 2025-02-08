@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     manage_courses_view, create_course_view, edit_course_view, delete_course_view,
-    manage_sections_view, create_section_view, edit_section_view, delete_section_view, enroll_student_view
+    manage_sections_view, create_section_view, edit_section_view, delete_section_view, manage_enrollments_view, enroll_student_view, unenroll_student_view
 )
 
 urlpatterns = [
@@ -18,5 +18,7 @@ urlpatterns = [
     path('delete-section/<int:section_id>/', delete_section_view, name='delete_section'),
 
     # 🔹 Enrollment Management
+    path('manage-enrollments/', manage_enrollments_view, name='manage_enrollments'),
     path('enroll-student/', enroll_student_view, name='enroll_student'),
+    path('unenroll-student/<int:enrollment_id>/', unenroll_student_view, name='unenroll_student'),
 ]

@@ -61,3 +61,20 @@ class Enrollment(models.Model):
 
     def __str__(self):
         return f"{self.student.matric_id} enrolled in {self.section}"
+
+    def clean(self):
+        """Prevent students from enrolling in overlapping schedules."""
+        if self.section.schedule:
+            end_time = self.section.schedule + timedelta(minutes=self.section.duration)
+
+            # Check if this student is already enrolled in another section during the same time
+            overlapping_enrollments = Enrollment.objects.filter(
+                student=self.student,
+                section__schedule__lt=end_time,
+                section__schedule__gte=self.section.schedule
+            ).exclude(id=self.id)  # Exclude the current enrollment if updating
+
+            if overlapping_enrollments.exists():
+                raise ValidationError("This student is already enrolled in another section at this time.")
+
+        super().clean()
