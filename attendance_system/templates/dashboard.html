@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Dashboard</h2>
+<p>Welcome, {{ user.first_name }}!</p>
+
+{% if user.role == "Superadmin" %}
+    <p>You are a Superadmin. Manage users and system settings.</p>
+    <a href="#" class="btn btn-primary">Manage Users</a>
+{% elif user.role == "Admin" %}
+    <p>You are an Admin. Oversee the system and manage lecturers and students.</p>
+    <a href="#" class="btn btn-primary">Manage Lecturers & Students</a>
+{% elif user.role == "Lecturer" %}
+    <p>You are a Lecturer. Manage attendance and materials.</p>
+    <a href="#" class="btn btn-primary">Manage Attendance</a>
+{% elif user.role == "Student" %}
+    <p>You are a Student. View your attendance records and announcements.</p>
+    <a href="#" class="btn btn-primary">View Attendance</a>
+{% endif %}
+
+{% endblock %}
