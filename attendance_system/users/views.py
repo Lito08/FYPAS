@@ -97,6 +97,8 @@ def create_user_view(request):
 
             messages.success(request, "User created successfully! Credentials have been sent to the personal email.")
             return redirect('manage_users')
+        else:
+            messages.error(request, "Failed to create user. Please fix the errors below.")
 
     else:
         form = UserCreationForm()

@@ -6,7 +6,11 @@
 
 {% if user.role == "Superadmin" or user.role == "Admin" %}
     <a href="{% url 'manage_users' %}" class="btn btn-primary">Manage Users</a>
-    <p>You are an Admin. Oversee the system and manage lecturers and students.</p>
+    {% if user.role == "Superadmin"%}
+        <p>You are a Superadmin. Oversee the system and manage lecturers and students.</p>
+    {% elif user.role == "Admin" %}
+        <p>You are an Admin.</p>
+    {% endif %}
 {% elif user.role == "Lecturer" %}
     <p>You are a Lecturer. Manage attendance and materials.</p>
     <a href="#" class="btn btn-primary">Manage Attendance</a>
