@@ -1,11 +1,12 @@
 # users/urls.py
 from django.urls import path
 from . import views
-from .views import dashboard_view, manage_users_view, create_user_view, edit_user_view, delete_user_view
+from .views import change_password_view, dashboard_view, manage_users_view, create_user_view, edit_user_view, delete_user_view
 
 urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
+    path('change-password/', change_password_view, name='change_password'),
     path('dashboard/', dashboard_view, name='dashboard'),
     
     path('manage-users/', manage_users_view, name='manage_users'),

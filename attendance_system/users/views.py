@@ -1,4 +1,4 @@
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -6,6 +6,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from .models import User
 from .forms import UserCreationForm
+from django.contrib.auth.forms import PasswordChangeForm
 
 def login_view(request):
     if request.method == 'POST':
@@ -16,15 +17,33 @@ def login_view(request):
 
         if user is not None:
             login(request, user)
+
+            # ✅ If first login, redirect to password change page
+            if user.first_login:
+                return redirect('change_password')  # Redirect to password change page
+            
             messages.success(request, "Login successful!")
-            next_url = request.GET.get('next')  # Get the 'next' URL from GET request
-            if next_url:
-                return redirect(next_url)  # Redirect to the page the user tried to access
-            return redirect('dashboard')  # Default redirect after login
+            return redirect('dashboard')
         else:
             messages.error(request, "Invalid Matric ID or Password")
 
     return render(request, 'users/login.html')
+
+@login_required
+def change_password_view(request):
+    if request.method == 'POST':
+        form = PasswordChangeForm(user=request.user, data=request.POST)
+        if form.is_valid():
+            user = form.save()
+            user.first_login = False  # ✅ Mark as password changed
+            user.save()
+            update_session_auth_hash(request, user)  # Keep user logged in
+            messages.success(request, "Password updated successfully!")
+            return redirect('dashboard')
+    else:
+        form = PasswordChangeForm(user=request.user)
+
+    return render(request, 'users/change_password.html', {'form': form})
 
 def logout_view(request):
     logout(request)
