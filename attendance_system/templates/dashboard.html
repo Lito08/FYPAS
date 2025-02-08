@@ -4,12 +4,9 @@
 <h2>Dashboard</h2>
 <p>Welcome, {{ user.first_name }}!</p>
 
-{% if user.role == "Superadmin" %}
-    <p>You are a Superadmin. Manage users and system settings.</p>
-    <a href="#" class="btn btn-primary">Manage Users</a>
-{% elif user.role == "Admin" %}
+{% if user.role == "Superadmin" or user.role == "Admin" %}
+    <a href="{% url 'manage_users' %}" class="btn btn-primary">Manage Users</a>
     <p>You are an Admin. Oversee the system and manage lecturers and students.</p>
-    <a href="#" class="btn btn-primary">Manage Lecturers & Students</a>
 {% elif user.role == "Lecturer" %}
     <p>You are a Lecturer. Manage attendance and materials.</p>
     <a href="#" class="btn btn-primary">Manage Attendance</a>
