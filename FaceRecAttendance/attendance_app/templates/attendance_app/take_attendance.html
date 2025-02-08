@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="text-center">
+    <h1>Take Attendance</h1>
+    <p>Click the button below to scan your face.</p>
+
+    <!-- Video Stream -->
+    <video id="video" width="640" height="480" autoplay></video>
+    <button class="btn btn-primary mt-3" onclick="captureImage()">Capture & Upload</button>
+
+    <canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
+</div>
+
+<script>
+    // Access Webcam
+    const video = document.getElementById('video');
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => video.srcObject = stream)
+        .catch(err => console.error("Camera access denied:", err));
+
+    function captureImage() {
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        // Convert to Image and Send to Backend
+        canvas.toBlob(blob => {
+            const formData = new FormData();
+            formData.append("image", blob, "capture.jpg");
+
+            fetch("/attendance/recognize/", {
+                method: "POST",
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => alert(data.message))
+            .catch(error => console.error("Error:", error));
+        }, "image/jpeg");
+    }
+</script>
+{% endblock %}
