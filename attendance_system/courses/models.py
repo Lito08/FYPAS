@@ -1,5 +1,7 @@
+from datetime import timedelta
 from django.db import models
-from users.models import User  # Import User model
+from django.core.exceptions import ValidationError
+from users.models import User
 
 class Course(models.Model):
     """Main Course Model"""
@@ -24,13 +26,30 @@ class Section(models.Model):
     section_number = models.IntegerField()
     lecturer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, limit_choices_to={'role': 'Lecturer'})
     schedule = models.DateTimeField(null=True, blank=True)
-    duration = models.PositiveIntegerField(default=60)  # ✅ New field (Duration in minutes)
+    duration = models.PositiveIntegerField(default=60)  # Duration in minutes
 
     class Meta:
         unique_together = ('course', 'section_type', 'section_number')
 
     def __str__(self):
         return f"{self.course.code} - {self.section_type} {self.section_number}"
+
+    def clean(self):
+        """Prevent overlapping schedules for lecturers and students."""
+        if self.schedule and self.lecturer:
+            end_time = self.schedule + timedelta(minutes=self.duration)
+
+            # Check if this lecturer has another section during the same time
+            overlapping_sections = Section.objects.filter(
+                lecturer=self.lecturer,
+                schedule__lt=end_time,
+                schedule__gte=self.schedule
+            ).exclude(id=self.id)  # Exclude the current section (for editing)
+
+            if overlapping_sections.exists():
+                raise ValidationError("This lecturer already has a section scheduled at this time.")
+
+        super().clean()
 
 class Enrollment(models.Model):
     """Tracks Student Enrollment in Sections"""
