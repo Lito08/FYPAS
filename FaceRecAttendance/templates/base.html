@@ -26,20 +26,41 @@
     <!-- Navigation Bar -->
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
-            <a class="navbar-brand" href="/">Face Rec Attendance</a>
+            <a class="navbar-brand" href="{% url 'home' %}">Face Rec Attendance</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
+
+                    <!-- Visible to All Users -->
                     <li class="nav-item"><a class="nav-link" href="{% url 'home' %}">Home</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{% url 'take_attendance' %}">Take Attendance</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{% url 'attendance_records' %}">Records</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{% url 'login' %}">Login</a></li>
+                    <li class="nav-item"><a class="nav-link" href="">Announcements</a></li>
+
+                    {% if user.is_authenticated %}
+                        {% if user.is_superuser or user.is_staff %}
+                            <!-- Admin or Superadmin -->
+                            <li class="nav-item"><a class="nav-link" href="{% url 'user_management' %}">Manage Users</a></li>
+                        {% endif %}
+                        
+                        {% if user.role == "lecturer" or user.is_staff %}
+                            <!-- Lecturers and Admins -->
+                            <li class="nav-item"><a class="nav-link" href="{% url 'take_attendance' %}">Take Attendance</a></li>
+                        {% endif %}
+                        
+                        {% if user.role == "student" or user.role == "lecturer" or user.is_staff %}
+                            <!-- Students, Lecturers, and Admins -->
+                            <li class="nav-item"><a class="nav-link" href="{% url 'attendance_records' %}">Records</a></li>
+                        {% endif %}
+                        
+                        <li class="nav-item"><a class="nav-link text-danger" href="{% url 'logout' %}">Logout</a></li>
+                    {% else %}
+                        <li class="nav-item"><a class="nav-link" href="{% url 'login' %}">Login</a></li>
+                    {% endif %}
                 </ul>
             </div>
         </div>
-    </nav>
+    </nav>    
 
     <!-- Main Content -->
     <div class="container">

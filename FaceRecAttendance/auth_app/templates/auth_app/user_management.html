@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <h1>User Management</h1>
+
+    {% if error %}
+        <p class="text-danger">{{ error }}</p>
+    {% endif %}
+
+    <!-- Create User Form -->
+    <h3>Create New User</h3>
+    <form method="POST">
+        {% csrf_token %}
+        <div class="mb-3">
+            <input type="text" name="matric_id" class="form-control" placeholder="Matric ID" required>
+        </div>
+        <div class="mb-3">
+            <input type="password" name="password" class="form-control" placeholder="Password" required>
+        </div>
+        <div class="mb-3">
+            <select name="role" class="form-control">
+                <option value="student">Student</option>
+                <option value="lecturer">Lecturer</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-success">Create User</button>
+    </form>
+
+    <hr>
+
+    <!-- User List -->
+    <h3>Existing Users</h3>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Matric ID</th>
+                <th>Role</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ user.matric_id }}</td>
+                <td>{{ user.role }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
