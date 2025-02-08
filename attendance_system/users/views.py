@@ -62,20 +62,21 @@ def create_user_view(request):
         if form.is_valid():
             user, temp_password = form.save()
 
-            # Send the generated credentials to the user's email
+            # Send credentials to the user's PERSONAL email
             subject = "Your University System Account Credentials"
             message = (
                 f"Dear {user.first_name} {user.last_name},\n\n"
-                f"Your account has been created successfully.\n"
+                f"Your university account has been created.\n"
                 f"Matric ID: {user.matric_id}\n"
-                f"Email: {user.email}\n"
+                f"Login Email: {user.email}\n"
                 f"Temporary Password: {temp_password}\n\n"
-                f"Please log in and change your password as soon as possible.\n\n"
+                f"Please log in and change your password immediately.\n\n"
                 f"Best Regards,\nUniversity Administration"
             )
-            send_mail(subject, message, settings.EMAIL_HOST_USER, [user.email])
 
-            messages.success(request, "User created successfully! Credentials have been sent via email.")
+            send_mail(subject, message, settings.EMAIL_HOST_USER, [user.personal_email])
+
+            messages.success(request, "User created successfully! Credentials have been sent to the personal email.")
             return redirect('manage_users')
 
     else:
