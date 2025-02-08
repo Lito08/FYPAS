@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <h1>Add Class to Section: {{ section.get_section_type_display }} - {{ section.schedule }}</h1>
+
+    <form method="POST">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary">Add Class</button>
+    </form>
+</div>
+{% endblock %}

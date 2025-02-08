@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <h1>Admin Dashboard</h1>
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card text-white bg-primary mb-3">
+                <div class="card-header">Total Users</div>
+                <div class="card-body">
+                    <h4 class="card-title">{{ total_users }}</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-success mb-3">
+                <div class="card-header">Total Students</div>
+                <div class="card-body">
+                    <h4 class="card-title">{{ total_students }}</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-warning mb-3">
+                <div class="card-header">Total Lecturers</div>
+                <div class="card-body">
+                    <h4 class="card-title">{{ total_lecturers }}</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h3 class="mt-4">Attendance Statistics</h3>
+    <p>Total Attendance Records: <strong>{{ total_attendance_records }}</strong></p>
+
+    <a href="{% url 'user_management' %}" class="btn btn-primary">Manage Users</a>
+</div>
+{% endblock %}

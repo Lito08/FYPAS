@@ -9,17 +9,25 @@ def user_login(request):
         matric_id = request.POST["matric_id"]
         password = request.POST["password"]
         user = authenticate(request, username=matric_id, password=password)
+        
         if user:
             login(request, user)
-            return redirect("home")
+            # Redirect based on user role
+            if user.is_superuser or user.is_staff:
+                return redirect("dashboard")  # Admin/Superadmin Dashboard
+            elif user.role == "lecturer":
+                return redirect("dashboard")  # Lecturer Dashboard
+            elif user.role == "student":
+                return redirect("dashboard")  # Student Dashboard
         else:
             return render(request, "login.html", {"error": "Invalid credentials"})
 
     return render(request, "login.html")
 
+
 def user_logout(request):
     logout(request)
-    return redirect("home")
+    return redirect("/")
 
 @login_required
 def user_management(request):
