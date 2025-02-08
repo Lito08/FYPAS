@@ -4,6 +4,7 @@
 <h2>Manage Sections</h2>
 
 <a href="{% url 'create_section' %}" class="btn btn-success">Add New Section</a>
+<a href="{% url 'manage_courses' %}" class="btn btn-primary">Manage Courses</a>
 
 <table class="table mt-3">
     <thead>
@@ -13,6 +14,7 @@
             <th>Number</th>
             <th>Lecturer</th>
             <th>Schedule</th>
+            <th>Duration</th>
             <th>Actions</th>
         </tr>
     </thead>
@@ -24,6 +26,7 @@
             <td>{{ section.section_number }}</td>
             <td>{{ section.lecturer.first_name }} {{ section.lecturer.last_name }}</td>
             <td>{{ section.schedule|default:"Not Set" }}</td>
+            <td>{{ section.duration }} minutes</td>
             <td>
                 <a href="{% url 'edit_section' section.id %}" class="btn btn-warning btn-sm">Edit</a>
                 <a href="{% url 'delete_section' section.id %}" class="btn btn-danger btn-sm">Delete</a>

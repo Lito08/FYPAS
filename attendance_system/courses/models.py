@@ -23,7 +23,8 @@ class Section(models.Model):
     section_type = models.CharField(max_length=10, choices=SECTION_TYPES)
     section_number = models.IntegerField()
     lecturer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, limit_choices_to={'role': 'Lecturer'})
-    schedule = models.DateTimeField(null=True, blank=True)  # ✅ Makes schedule optional
+    schedule = models.DateTimeField(null=True, blank=True)
+    duration = models.PositiveIntegerField(default=60)  # ✅ New field (Duration in minutes)
 
     class Meta:
         unique_together = ('course', 'section_type', 'section_number')
