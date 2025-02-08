@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Create a New Course</h2>
+
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Create Course</button>
+</form>
+
+<a href="{% url 'manage_courses' %}" class="btn btn-secondary mt-3">Back to Courses</a>
+{% endblock %}

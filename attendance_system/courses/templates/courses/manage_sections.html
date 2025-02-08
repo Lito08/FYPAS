@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Manage Sections</h2>
+
+<a href="{% url 'create_section' %}" class="btn btn-success">Add New Section</a>
+
+<table class="table mt-3">
+    <thead>
+        <tr>
+            <th>Course</th>
+            <th>Type</th>
+            <th>Number</th>
+            <th>Lecturer</th>
+            <th>Schedule</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for section in sections %}
+        <tr>
+            <td>{{ section.course.code }}</td>
+            <td>{{ section.section_type }}</td>
+            <td>{{ section.section_number }}</td>
+            <td>{{ section.lecturer.first_name }} {{ section.lecturer.last_name }}</td>
+            <td>{{ section.schedule|default:"Not Set" }}</td>
+            <td>
+                <a href="{% url 'edit_section' section.id %}" class="btn btn-warning btn-sm">Edit</a>
+                <a href="{% url 'delete_section' section.id %}" class="btn btn-danger btn-sm">Delete</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
