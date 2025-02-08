@@ -112,8 +112,10 @@ def edit_user_view(request, user_id):
 
     user = get_object_or_404(User, id=user_id)
 
+    # ✅ Prevent Admins from editing other Admins
     if request.user.role == 'Admin' and user.role == 'Admin':  
-        return render(request, 'access_denied.html')  # Admins cannot edit other Admins
+        messages.error(request, "You are not allowed to edit other Admins.")
+        return redirect('manage_users')
 
     if request.method == 'POST':
         form = UserCreationForm(request.POST, instance=user)
@@ -121,10 +123,13 @@ def edit_user_view(request, user_id):
             form.save()
             messages.success(request, "User details updated successfully!")
             return redirect('manage_users')
+        else:
+            messages.error(request, "Failed to update user. Please fix the errors below.")
     else:
         form = UserCreationForm(instance=user)
 
     return render(request, 'users/edit_user.html', {'form': form, 'user': user})
+
 
 @login_required(login_url='/users/login/')
 def delete_user_view(request, user_id):
