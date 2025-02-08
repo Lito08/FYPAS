@@ -1,4 +1,5 @@
 from django import forms
+from django.contrib.auth.forms import PasswordResetForm
 from .models import User
 
 class UserCreationForm(forms.ModelForm):
@@ -33,3 +34,17 @@ class UserCreationForm(forms.ModelForm):
                 role=self.cleaned_data['role']
             )
             return user, temp_password
+
+class CustomPasswordResetForm(PasswordResetForm):
+    """Custom password reset form that ensures emails are sent to personal_email."""
+
+    def get_users(self, email):
+        """Override to filter by personal_email instead of email."""
+        active_users = User.objects.filter(personal_email=email, is_active=True)
+        
+        # ✅ Ensure the correct email is used when sending the reset email
+        for user in active_users:
+            user.email = user.personal_email  # Force Django to use personal_email
+            user.save()
+        
+        return active_users

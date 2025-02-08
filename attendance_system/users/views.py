@@ -130,7 +130,6 @@ def edit_user_view(request, user_id):
 
     return render(request, 'users/edit_user.html', {'form': form, 'user': user})
 
-
 @login_required(login_url='/users/login/')
 def delete_user_view(request, user_id):
     if request.user.role not in ['Superadmin', 'Admin']:

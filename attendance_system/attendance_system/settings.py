@@ -21,6 +21,7 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'zephyrlitooooooo0@gmail.com'  # Replace with your email
 EMAIL_HOST_PASSWORD = 'edbd wcek pire ycwk'  # Replace with your email password
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # Application definition
 
