@@ -4,47 +4,61 @@ import random
 import string
 
 class UserManager(BaseUserManager):
-    def create_user(self, matric_id, email=None, password=None, **extra_fields):
-        """
-        Create and return a user with a matric_id, email, and password.
-        """
-        if not matric_id:
-            raise ValueError('The Matric ID must be set')
-        email = email or f"{matric_id}@university.com"  # Generate email based on Matric ID
-        user = self.model(matric_id=matric_id, email=email, **extra_fields)
-        user.set_password(password)
+    def create_user(self, first_name, last_name, personal_email, role, **extra_fields):
+        """Create and return a user with a generated Matric ID and email."""
+        if not personal_email:
+            raise ValueError('A personal email is required.')
+
+        # Generate Matric ID
+        prefix = {'Admin': 'A', 'Lecturer': 'L', 'Student': 'S'}.get(role, 'U')
+        random_id = ''.join(random.choices(string.digits, k=7))  # FIXED: Generating ID correctly
+        matric_id = f"{prefix}{random_id}"
+
+        # Generate university email
+        university_email = f"{matric_id}@university.com"
+
+        user = self.model(
+            matric_id=matric_id,
+            email=university_email,
+            personal_email=personal_email,
+            first_name=first_name,
+            last_name=last_name,
+            role=role,
+            first_login=True,  # User must change password on first login
+            **extra_fields
+        )
+        temp_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))  # FIXED: Generate password
+        user.set_password(temp_password)
         user.save(using=self._db)
-        return user
+        return user, temp_password
 
     def create_superuser(self, matric_id, email=None, password=None, **extra_fields):
-        """
-        Create and return a superuser with a matric_id, email, and password.
-        """
+        """Create and return a superuser with a matric_id, email, and password."""
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
-        return self.create_user(matric_id, email, password, **extra_fields)
+        return self.create_user(matric_id=matric_id, email=email, password=password, **extra_fields)
 
 class User(AbstractBaseUser, PermissionsMixin):
     matric_id = models.CharField(max_length=12, unique=True)
-    email = models.EmailField(unique=True, blank=True, null=True)
-    first_name = models.CharField(max_length=50, blank=True, null=True)
-    last_name = models.CharField(max_length=50, blank=True, null=True)
-    role = models.CharField(max_length=20, choices=[('Superadmin', 'Superadmin'), ('Admin', 'Admin'), 
-                                                     ('Lecturer', 'Lecturer'), ('Student', 'Student')])
+    email = models.EmailField(unique=True, default="default@university.com")
+    personal_email = models.EmailField(unique=True, blank=True, null=True, default="default@example.com")
+    first_name = models.CharField(max_length=50, default="First")
+    last_name = models.CharField(max_length=50, default="Last")
+    role = models.CharField(max_length=20, choices=[
+        ('Superadmin', 'Superadmin'),
+        ('Admin', 'Admin'),
+        ('Lecturer', 'Lecturer'),
+        ('Student', 'Student')
+    ])
+    first_login = models.BooleanField(default=True)
+
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
 
     USERNAME_FIELD = 'matric_id'
-    REQUIRED_FIELDS = ['email']  # email will be automatically generated
+    REQUIRED_FIELDS = ['email', 'personal_email', 'first_name', 'last_name', 'role']
 
     objects = UserManager()
 
     def __str__(self):
         return self.matric_id
-
-    def generate_temp_password(self):
-        """Generate a temporary password and send it to the user's email."""
-        password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
-        self.set_password(password)
-        # Logic to send the password to the user's email
-        return password
