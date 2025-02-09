@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Attendance Records</h2>
+
+{% if records %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Student</th>
+                <th>Course</th>
+                <th>Section</th>
+                <th>Date</th>
+                <th>Time Checked In</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for record in records %}
+            <tr>
+                <td>{{ record.student.first_name }} {{ record.student.last_name }}</td>
+                <td>{{ record.section.course.name }}</td>
+                <td>{{ record.section.section_type }} {{ record.section.section_number }}</td>
+                <td>{{ record.date }}</td>
+                <td>
+                    {% if record.time_checked_in %}
+                        {{ record.time_checked_in|date:"H:i A" }}
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="badge {% if record.status == 'Present' %}bg-success{% elif record.status == 'Late' %}bg-warning{% else %}bg-danger{% endif %}">
+                        {{ record.status }}
+                    </span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>No attendance records found.</p>
+{% endif %}
+
+<a href="{% url 'dashboard' %}" class="btn btn-secondary">Back to Dashboard</a>
+{% endblock %}
