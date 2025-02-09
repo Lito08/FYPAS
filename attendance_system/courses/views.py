@@ -236,12 +236,17 @@ def unenroll_student_view(request, enrollment_id):
 # 🔹 SELECT COURSES (Step 1)
 @login_required(login_url='/users/login/')
 def select_course_view(request):
-    """Step 1: Student selects courses to enroll in."""
+    """Step 1: Student selects courses to enroll in, excluding already enrolled ones."""
     if request.user.role != 'Student':
         return render(request, 'access_denied.html')
 
-    courses = Course.objects.all()
-    return render(request, 'courses/select_course.html', {'courses': courses})
+    # Get course IDs that the student has already enrolled in
+    enrolled_courses = Enrollment.objects.filter(student=request.user).values_list('section__course_id', flat=True)
+    
+    # Exclude already enrolled courses
+    available_courses = Course.objects.exclude(id__in=enrolled_courses)
+
+    return render(request, 'courses/select_course.html', {'courses': available_courses})
 
 # 🔹 SELECT SECTIONS (Step 2)
 @login_required(login_url='/users/login/')
