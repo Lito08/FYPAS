@@ -60,4 +60,4 @@ python manage.py migrate
 ```
 
 ## ✍ Contributors
-- [Daniel Yusoff bin Asri](https://github.com/yourprofile)
+- [Daniel Yusoff bin Asri](https://github.com/Lito08)
