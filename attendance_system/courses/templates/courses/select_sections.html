@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Select Sections for {{ course.name }}</h2>
+
+<form method="post">
+    {% csrf_token %}
+
+    <label>Lecture Section:</label>
+    <select name="lecture_section" class="form-control" required>
+        <option value="">-- Select a Lecture Section --</option>
+        {% for section in form.fields.lecture_section.queryset %}
+            <option value="{{ section.id }}" {% if section.enrollment_set.count >= section.max_students %}disabled{% endif %}>
+                {{ section.section_type }} {{ section.section_number }} (Seats Left: {{ section.max_students|default:30|add:"- "|add:section.enrollment_set.count }})
+            </option>
+        {% endfor %}
+    </select>
+
+    {% if course.tutorial_required %}
+        <label>Tutorial Section:</label>
+        <select name="tutorial_section" class="form-control" required>
+            <option value="">-- Select a Tutorial Section --</option>
+            {% for section in form.fields.tutorial_section.queryset %}
+                <option value="{{ section.id }}" {% if section.enrollment_set.count >= section.max_students %}disabled{% endif %}>
+                    {{ section.section_type }} {{ section.section_number }} (Seats Left: {{ section.max_students|default:30|add:"- "|add:section.enrollment_set.count }})
+                </option>
+            {% endfor %}
+        </select>
+    {% endif %}
+
+    <button type="submit" class="btn btn-primary mt-3">Add to Cart</button>
+</form>
+
+<a href="{% url 'select_course' %}" class="btn btn-secondary mt-3">Back to Course Selection</a>
+{% endblock %}

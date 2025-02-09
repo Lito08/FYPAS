@@ -18,6 +18,7 @@
             padding-top: 20px;
             position: fixed;
             height: 100vh;
+            transition: all 0.3s;
         }
         .sidebar a {
             display: block;
@@ -25,46 +26,87 @@
             padding: 10px;
             text-decoration: none;
         }
-        .sidebar a:hover {
+        .sidebar a:hover, .sidebar a.active {
             background-color: #495057;
+            font-weight: bold;
         }
         .content {
             margin-left: 250px;
             padding: 20px;
             width: 100%;
         }
+        .toggle-btn {
+            position: fixed;
+            top: 15px;
+            left: 260px;
+            background-color: #343a40;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            display: none;
+        }
+        .sidebar.collapsed {
+            width: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        .content.collapsed {
+            margin-left: 0;
+        }
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 0;
+                overflow: hidden;
+                padding: 0;
+            }
+            .toggle-btn {
+                display: block;
+            }
+            .content {
+                margin-left: 0;
+            }
+        }
     </style>
 </head>
 <body>
 
 <!-- ✅ Sidebar Navigation -->
-<div class="sidebar">
+<button class="toggle-btn" onclick="toggleSidebar()">☰</button>
+<div class="sidebar" id="sidebar">
     <h4 class="text-center">Navigation</h4>
-    <a href="{% url 'dashboard' %}">Dashboard</a>
+    <a href="{% url 'dashboard' %}" class="{% if request.path == '/dashboard/' %}active{% endif %}">Dashboard</a>
 
     {% if user.is_authenticated %}
         {% if user.role == "Superadmin" or user.role == "Admin" %}
-            <a href="{% url 'manage_users' %}">Manage Users</a>
-            <a href="{% url 'manage_courses' %}">Manage Courses</a>
-            <a href="{% url 'manage_sections' %}">Manage Sections</a>
-            <a href="{% url 'manage_enrollments' %}">Manage Enrollments</a>
+            <a href="{% url 'manage_users' %}" class="{% if request.path == '/manage-users/' %}active{% endif %}">Manage Users</a>
+            <a href="{% url 'manage_courses' %}" class="{% if request.path == '/manage-courses/' %}active{% endif %}">Manage Courses</a>
+            <a href="{% url 'manage_sections' %}" class="{% if request.path == '/manage-sections/' %}active{% endif %}">Manage Sections</a>
+            <a href="{% url 'manage_enrollments' %}" class="{% if request.path == '/manage-enrollments/' %}active{% endif %}">Manage Enrollments</a>
         {% elif user.role == "Lecturer" %}
-            <a href="#">Manage Attendance</a>
+            <a href="#" class="{% if request.path == '/manage-attendance/' %}active{% endif %}">Manage Attendance</a>
         {% elif user.role == "Student" %}
-            <a href="{% url 'student_enrollment' %}">Enrollment</a>
-            <a href="#">View Attendance</a>
+            <a href="{% url 'select_course' %}" class="{% if request.path == '/select-course/' %}active{% endif %}">Enrollment</a>
+            <a href="#" class="{% if request.path == '/view-attendance/' %}active{% endif %}">View Attendance</a>
         {% endif %}
-        <a href="{% url 'logout' %}">Logout</a>
+        <a href="{% url 'logout' %}" class="{% if request.path == '/logout/' %}active{% endif %}">Logout</a>
     {% else %}
-        <a href="{% url 'login' %}">Login</a>
+        <a href="{% url 'login' %}" class="{% if request.path == '/login/' %}active{% endif %}">Login</a>
     {% endif %}
 </div>
 
 <!-- ✅ Main Content Area -->
-<div class="content">
+<div class="content" id="content">
     {% block content %}{% endblock %}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    function toggleSidebar() {
+        document.getElementById("sidebar").classList.toggle("collapsed");
+        document.getElementById("content").classList.toggle("collapsed");
+    }
+</script>
+
 </body>
 </html>

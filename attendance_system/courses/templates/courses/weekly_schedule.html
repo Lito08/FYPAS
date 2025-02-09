@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>My Weekly Schedule</h2>
+
+{% if weekly_schedule %}
+    <table class="table mt-3">
+        <thead>
+            <tr>
+                <th>Day</th>
+                <th>Time</th>
+                <th>Course</th>
+                <th>Section Type</th>
+                <th>Lecturer</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in weekly_schedule %}
+            <tr>
+                <td>{{ entry.day }}</td>
+                <td>{{ entry.start_time }} - {{ entry.end_time }}</td>
+                <td>{{ entry.course.name }}</td>
+                <td>{{ entry.section_type }}</td>
+                <td>{{ entry.lecturer.first_name }} {{ entry.lecturer.last_name }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>No classes scheduled for this week.</p>
+{% endif %}
+
+<a href="{% url 'student_enrollment' %}" class="btn btn-secondary mt-3">Back to Enrollment</a>
+{% endblock %}

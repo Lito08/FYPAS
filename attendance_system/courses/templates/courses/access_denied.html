@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Access Denied</h2>
+
+<div class="alert alert-danger">
+    <p>You do not have permission to access this page.</p>
+</div>
+
+<a href="{% url 'dashboard' %}" class="btn btn-primary">Go Back</a>
+{% endblock %}

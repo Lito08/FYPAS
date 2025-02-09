@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Enrollment Cart Summary</h2>
+
+{% if cart_items %}
+    <table class="table mt-3">
+        <thead>
+            <tr>
+                <th>Course</th>
+                <th>Lecture Section</th>
+                <th>Tutorial Section</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in cart_items %}
+            <tr>
+                <td>{{ item.course.name }}</td>
+                <td>{{ item.lecture_section.section_number }}</td>
+                <td>
+                    {% if item.tutorial_section %}
+                        {{ item.tutorial_section.section_number }}
+                    {% else %}
+                        Not Required
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{% url 'remove_from_cart' item.id %}" class="btn btn-danger btn-sm">Remove</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <a href="{% url 'finalize_enrollment' %}" class="btn btn-success">Finalize Enrollment</a>
+{% else %}
+    <p>Your cart is empty. Add courses before proceeding.</p>
+{% endif %}
+
+<a href="{% url 'select_course' %}" class="btn btn-secondary mt-3">Back to Course Selection</a>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Select Courses to Enroll In</h2>
+
+<table class="table mt-3">
+    <thead>
+        <tr>
+            <th>Course Code</th>
+            <th>Course Name</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for course in courses %}
+        <tr>
+            <td>{{ course.code }}</td>
+            <td>{{ course.name }}</td>
+            <td>
+                <a href="{% url 'select_sections' course.id %}" class="btn btn-primary">Select Sections</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<a href="{% url 'review_cart' %}" class="btn btn-secondary">Review Cart</a>
+{% endblock %}
