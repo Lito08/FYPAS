@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>My Enrolled Courses</h2>
+
+{% if enrollments %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Course</th>
+                <th>Section</th>
+                <th>Type</th>
+                <th>Schedule</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for enrollment in enrollments %}
+            <tr>
+                <td>{{ enrollment.section.course.name }}</td>
+                <td>{{ enrollment.section.section_number }}</td>
+                <td>{{ enrollment.section.section_type }}</td>
+                <td>
+                    {% if enrollment.section.schedule %}
+                        {{ enrollment.section.schedule|date:"l, d M Y H:i A" }}
+                    {% else %}
+                        TBA
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{% url 'change_section' enrollment.section.course.id %}" class="btn btn-primary btn-sm">Change Section</a>
+                    <a href="{% url 'drop_course' enrollment.section.course.id %}" class="btn btn-danger btn-sm">Drop Course</a>
+                </td>                
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p class="text-danger">You are not enrolled in any courses.</p>
+{% endif %}
+
+<a href="{% url 'select_course' %}" class="btn btn-primary">Enroll in Courses</a>
+{% endblock %}

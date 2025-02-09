@@ -380,3 +380,81 @@ def student_schedule_view(request):
         'hours': hours,
         'weekdays': weekdays
     })
+
+@login_required(login_url='/users/login/')
+def my_courses_view(request):
+    """Displays all enrolled courses for the student with options to drop or change sections."""
+    if request.user.role != 'Student':
+        return render(request, 'access_denied.html')
+
+    # ✅ Fetch enrolled courses and their sections
+    enrollments = Enrollment.objects.filter(student=request.user).select_related('section__course')
+
+    return render(request, 'courses/my_courses.html', {'enrollments': enrollments})
+
+@login_required(login_url='/users/login/')
+def change_section_view(request, course_id):
+    """Allows students to change their section for an enrolled course."""
+    if request.user.role != 'Student':
+        return render(request, 'access_denied.html')
+
+    # ✅ Ensure the student is enrolled in this course
+    enrollment = Enrollment.objects.filter(student=request.user, section__course_id=course_id).first()
+    if not enrollment:
+        messages.error(request, "You are not enrolled in this course.")
+        return redirect('my_courses')
+
+    course = enrollment.section.course
+
+    # ✅ Get available sections for this course
+    lecture_sections = Section.objects.filter(course=course, section_type='Lecture').exclude(schedule=None)
+    tutorial_sections = Section.objects.filter(course=course, section_type='Tutorial').exclude(schedule=None)
+
+    if request.method == 'POST':
+        section_id = request.POST.get('section_id')
+        section = get_object_or_404(Section, id=section_id)
+
+        # ✅ Prevent schedule conflicts
+        enrolled_sections = Enrollment.objects.filter(student=request.user).exclude(section=enrollment.section)
+        for e in enrolled_sections:
+            if section.schedule and e.section.schedule:
+                end_time = section.schedule + timedelta(minutes=section.duration)
+                if e.section.schedule < end_time and section.schedule < (e.section.schedule + timedelta(minutes=e.section.duration)):
+                    messages.error(request, "This section conflicts with another enrolled section.")
+                    return redirect('change_section', course_id=course.id)
+
+        # ✅ Update enrollment with new section
+        enrollment.section = section
+        enrollment.save()
+
+        messages.success(request, f"Successfully changed section to {section.section_type} {section.section_number}.")
+        return redirect('my_courses')
+
+    return render(request, 'courses/change_section.html', {
+        'course': course,
+        'lecture_sections': lecture_sections,
+        'tutorial_sections': tutorial_sections,
+        'current_section': enrollment.section
+    })
+
+@login_required(login_url='/users/login/')
+def drop_course_view(request, course_id):
+    """Allows students to drop a course they are currently enrolled in."""
+    if request.user.role != 'Student':
+        return render(request, 'access_denied.html')
+
+    # ✅ Get the enrolled sections for this course
+    enrollments = Enrollment.objects.filter(student=request.user, section__course_id=course_id)
+    
+    if not enrollments.exists():
+        messages.error(request, "You are not enrolled in this course.")
+        return redirect('my_courses')
+
+    if request.method == 'POST':
+        enrollments.delete()
+        messages.success(request, "Successfully dropped the course.")
+        return redirect('my_courses')
+
+    return render(request, 'courses/drop_course.html', {
+        'course': enrollments.first().section.course
+    })

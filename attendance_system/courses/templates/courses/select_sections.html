@@ -40,22 +40,32 @@
         <tr>
             <td>{{ section.section_type }} {{ section.section_number }}</td>
             <td>{{ section.max_students|default:30|add:"- "|add:section.enrollment_set.count }}</td>
-            <td>{{ section.schedule|default:"TBA" }}</td>
             <td>
-                {% if section.enrollment_set.count < section.max_students %}
-                    {% if cart_item.lecture_section and cart_item.lecture_section.id == section.id %}
-                        <button class="btn btn-secondary btn-sm" disabled>Lecture Selected</button>
-                    {% elif cart_item.lecture_section %}
-                        <button class="btn btn-secondary btn-sm" disabled>Lecture Already Selected</button>
+                {% if section.schedule %}
+                    {{ section.schedule|date:"l, d M Y H:i A" }}
+                {% else %}
+                    <span class="text-danger">TBA</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if section.schedule %}
+                    {% if section.enrollment_set.count < section.max_students %}
+                        {% if cart_item.lecture_section and cart_item.lecture_section.id == section.id %}
+                            <button class="btn btn-secondary btn-sm" disabled>Lecture Selected</button>
+                        {% elif cart_item.lecture_section %}
+                            <button class="btn btn-secondary btn-sm" disabled>Lecture Already Selected</button>
+                        {% else %}
+                            <form method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="section_id" value="{{ section.id }}">
+                                <button type="submit" class="btn btn-success btn-sm">Add to Cart</button>
+                            </form>
+                        {% endif %}
                     {% else %}
-                        <form method="post">
-                            {% csrf_token %}
-                            <input type="hidden" name="section_id" value="{{ section.id }}">
-                            <button type="submit" class="btn btn-success btn-sm">Add to Cart</button>
-                        </form>
+                        <button class="btn btn-secondary btn-sm" disabled>Full</button>
                     {% endif %}
                 {% else %}
-                    <button class="btn btn-secondary btn-sm" disabled>Full</button>
+                    <button class="btn btn-secondary btn-sm" disabled>TBA</button>
                 {% endif %}
             </td>
         </tr>
@@ -80,22 +90,32 @@
         <tr>
             <td>{{ section.section_type }} {{ section.section_number }}</td>
             <td>{{ section.max_students|default:30|add:"- "|add:section.enrollment_set.count }}</td>
-            <td>{{ section.schedule|default:"TBA" }}</td>
             <td>
-                {% if section.enrollment_set.count < section.max_students %}
-                    {% if cart_item.tutorial_section and cart_item.tutorial_section.id == section.id %}
-                        <button class="btn btn-secondary btn-sm" disabled>Tutorial Selected</button>
-                    {% elif cart_item.tutorial_section %}
-                        <button class="btn btn-secondary btn-sm" disabled>Tutorial Already Selected</button>
+                {% if section.schedule %}
+                    {{ section.schedule|date:"l, d M Y H:i A" }}
+                {% else %}
+                    <span class="text-danger">TBA</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if section.schedule %}
+                    {% if section.enrollment_set.count < section.max_students %}
+                        {% if cart_item.tutorial_section and cart_item.tutorial_section.id == section.id %}
+                            <button class="btn btn-secondary btn-sm" disabled>Tutorial Selected</button>
+                        {% elif cart_item.tutorial_section %}
+                            <button class="btn btn-secondary btn-sm" disabled>Tutorial Already Selected</button>
+                        {% else %}
+                            <form method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="section_id" value="{{ section.id }}">
+                                <button type="submit" class="btn btn-success btn-sm">Add to Cart</button>
+                            </form>
+                        {% endif %}
                     {% else %}
-                        <form method="post">
-                            {% csrf_token %}
-                            <input type="hidden" name="section_id" value="{{ section.id }}">
-                            <button type="submit" class="btn btn-success btn-sm">Add to Cart</button>
-                        </form>
+                        <button class="btn btn-secondary btn-sm" disabled>Full</button>
                     {% endif %}
                 {% else %}
-                    <button class="btn btn-secondary btn-sm" disabled>Full</button>
+                    <button class="btn btn-secondary btn-sm" disabled>TBA</button>
                 {% endif %}
             </td>
         </tr>

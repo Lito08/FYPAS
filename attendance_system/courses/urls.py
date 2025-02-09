@@ -3,7 +3,9 @@ from .views import (
     manage_courses_view, create_course_view, edit_course_view, delete_course_view,
     manage_sections_view, create_section_view, edit_section_view, delete_section_view, view_course_sections_view,
     manage_enrollments_view, enroll_student_view, unenroll_student_view, admin_enroll_student_view,
-    select_course_view, select_sections_view, review_cart_view, remove_from_cart_view, finalize_enrollment_view, student_schedule_view
+    select_course_view, select_sections_view, review_cart_view, remove_from_cart_view, finalize_enrollment_view,
+    my_courses_view, change_section_view, drop_course_view,
+    student_schedule_view
 )
 
 urlpatterns = [
@@ -33,6 +35,10 @@ urlpatterns = [
     path('review-cart/', review_cart_view, name='review_cart'),  # ✅ Step 3: Review Cart
     path('remove-from-cart/<int:cart_id>/', remove_from_cart_view, name='remove_from_cart'),  # ✅ Remove from cart
     path('finalize-enrollment/', finalize_enrollment_view, name='finalize_enrollment'),  # ✅ Step 4: Finalize Enrollment
+    
+    path('my-courses/', my_courses_view, name='my_courses'),
+    path('change-section/<int:course_id>/', change_section_view, name='change_section'),
+    path('drop-course/<int:course_id>/', drop_course_view, name='drop_course'),
 
     # 🔹 Student Schedule
     path('student-schedule/', student_schedule_view, name='student_schedule'),  # ✅ View enrolled courses

@@ -90,6 +90,7 @@
             <a href="#" class="{% if request.path == '/manage-attendance/' %}active{% endif %}">Manage Attendance</a>
         {% elif user.role == "Student" %}
             <a href="{% url 'select_course' %}" class="{% if request.path == '/select-course/' %}active{% endif %}">Enrollment</a>
+            <a href="{% url 'my_courses' %}" class="{% if request.path == '/my-courses/' %}active{% endif %}">My Courses</a>
             <a href="{% url 'student_schedule' %}" class="{% if request.path == '/student-schedule/' %}active{% endif %}">My Schedule</a>
             <a href="#" class="{% if request.path == '/view-attendance/' %}active{% endif %}">View Attendance</a>
         {% endif %}
