@@ -4,7 +4,7 @@
 <h2>Review Enrollment Cart</h2>
 
 {% if cart_items %}
-    <table class="table mt-3">
+    <table class="table table-bordered">
         <thead>
             <tr>
                 <th>Course</th>
@@ -17,10 +17,20 @@
             {% for item in cart_items %}
             <tr>
                 <td>{{ item.course.name }}</td>
-                <td>{{ item.lecture_section.section_type }} {{ item.lecture_section.section_number }}</td>
+                <td>
+                    {% if item.lecture_section %}
+                        {{ item.lecture_section.section_type }} {{ item.lecture_section.section_number }}
+                        <br><small>Schedule: {{ item.lecture_section.schedule|default:"TBA" }}</small>
+                        <br><small>Seats Left: {{ item.lecture_section.max_students|default:30|add:"- "|add:item.lecture_section.enrollment_set.count }}</small>
+                    {% else %}
+                        Not Selected
+                    {% endif %}
+                </td>
                 <td>
                     {% if item.tutorial_section %}
                         {{ item.tutorial_section.section_type }} {{ item.tutorial_section.section_number }}
+                        <br><small>Schedule: {{ item.tutorial_section.schedule|default:"TBA" }}</small>
+                        <br><small>Seats Left: {{ item.tutorial_section.max_students|default:30|add:"- "|add:item.tutorial_section.enrollment_set.count }}</small>
                     {% else %}
                         Not Required
                     {% endif %}

@@ -3,33 +3,73 @@
 {% block content %}
 <h2>Select Sections for {{ course.name }}</h2>
 
-<form method="post">
-    {% csrf_token %}
-
-    <label>Lecture Section:</label>
-    <select name="lecture_section" class="form-control" required>
-        <option value="">-- Select a Lecture Section --</option>
-        {% for section in form.fields.lecture_section.queryset %}
-            <option value="{{ section.id }}" {% if section.enrollment_set.count >= section.max_students %}disabled{% endif %}>
-                {{ section.section_type }} {{ section.section_number }} (Seats Left: {{ section.max_students|default:30|add:"- "|add:section.enrollment_set.count }})
-            </option>
+<!-- ✅ Lecture Sections -->
+<h4>Lecture Sections</h4>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Section</th>
+            <th>Seats Left</th>
+            <th>Schedule</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for section in lecture_sections %}
+        <tr>
+            <td>{{ section.section_type }} {{ section.section_number }}</td>
+            <td>{{ section.max_students|default:30|add:"- "|add:section.enrollment_set.count }}</td>
+            <td>{{ section.schedule|default:"TBA" }}</td>
+            <td>
+                {% if section.enrollment_set.count < section.max_students %}
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="section_id" value="{{ section.id }}">
+                        <button type="submit" class="btn btn-success btn-sm">Add to Cart</button>
+                    </form>
+                {% else %}
+                    <button class="btn btn-secondary btn-sm" disabled>Full</button>
+                {% endif %}
+            </td>
+        </tr>
         {% endfor %}
-    </select>
+    </tbody>
+</table>
 
-    {% if course.tutorial_required %}
-        <label>Tutorial Section:</label>
-        <select name="tutorial_section" class="form-control" required>
-            <option value="">-- Select a Tutorial Section --</option>
-            {% for section in form.fields.tutorial_section.queryset %}
-                <option value="{{ section.id }}" {% if section.enrollment_set.count >= section.max_students %}disabled{% endif %}>
-                    {{ section.section_type }} {{ section.section_number }} (Seats Left: {{ section.max_students|default:30|add:"- "|add:section.enrollment_set.count }})
-                </option>
-            {% endfor %}
-        </select>
-    {% endif %}
-
-    <button type="submit" class="btn btn-primary mt-3">Add to Cart</button>
-</form>
+<!-- ✅ Tutorial Sections (Only if Required) -->
+{% if course.tutorial_required %}
+<h4>Tutorial Sections</h4>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Section</th>
+            <th>Seats Left</th>
+            <th>Schedule</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for section in tutorial_sections %}
+        <tr>
+            <td>{{ section.section_type }} {{ section.section_number }}</td>
+            <td>{{ section.max_students|default:30|add:"- "|add:section.enrollment_set.count }}</td>
+            <td>{{ section.schedule|default:"TBA" }}</td>
+            <td>
+                {% if section.enrollment_set.count < section.max_students %}
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="section_id" value="{{ section.id }}">
+                        <button type="submit" class="btn btn-success btn-sm">Add to Cart</button>
+                    </form>
+                {% else %}
+                    <button class="btn btn-secondary btn-sm" disabled>Full</button>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
 
 <a href="{% url 'select_course' %}" class="btn btn-secondary mt-3">Back to Course Selection</a>
 {% endblock %}

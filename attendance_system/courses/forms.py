@@ -97,7 +97,8 @@ class EnrollmentForm(forms.ModelForm):
         return cleaned_data
 
 class EnrollmentCartForm(forms.ModelForm):
-    """Handles adding courses to the student's cart before finalizing enrollment."""
+    """Handles adding lecture/tutorial sections separately to the cart."""
+    
     class Meta:
         model = EnrollmentCart
         fields = ['lecture_section', 'tutorial_section']
@@ -109,7 +110,10 @@ class EnrollmentCartForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
 
         if course:
+            # ✅ Filter available lecture sections for this course
             self.fields['lecture_section'].queryset = Section.objects.filter(course=course, section_type='Lecture')
+
+            # ✅ Filter available tutorial sections for this course
             self.fields['tutorial_section'].queryset = Section.objects.filter(course=course, section_type='Tutorial')
 
     def clean(self):
@@ -118,16 +122,16 @@ class EnrollmentCartForm(forms.ModelForm):
         lecture_section = cleaned_data.get("lecture_section")
         tutorial_section = cleaned_data.get("tutorial_section")
 
-        if lecture_section is None:
-            raise forms.ValidationError("You must select a Lecture section.")
+        # ✅ Ensure at least one section is selected
+        if not lecture_section and not tutorial_section:
+            raise forms.ValidationError("You must select at least one section (Lecture or Tutorial).")
 
-        if tutorial_section is None and lecture_section.course.tutorial_required:
-            raise forms.ValidationError("You must select a Tutorial section.")
-
+        # ✅ Ensure sections are not full
         if lecture_section and Enrollment.objects.filter(section=lecture_section).count() >= lecture_section.max_students:
-            raise forms.ValidationError(f"The lecture section {lecture_section.section_number} is full. Please select another.")
+            raise forms.ValidationError(f"Lecture section {lecture_section.section_number} is full. Please select another.")
 
         if tutorial_section and Enrollment.objects.filter(section=tutorial_section).count() >= tutorial_section.max_students:
-            raise forms.ValidationError(f"The tutorial section {tutorial_section.section_number} is full. Please select another.")
+            raise forms.ValidationError(f"Tutorial section {tutorial_section.section_number} is full. Please select another.")
 
         return cleaned_data
+

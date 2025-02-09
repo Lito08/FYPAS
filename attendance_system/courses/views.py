@@ -245,30 +245,48 @@ def select_course_view(request):
 # 🔹 SELECT SECTIONS (Step 2)
 @login_required(login_url='/users/login/')
 def select_sections_view(request, course_id):
-    """Step 2: Student selects sections for the selected course."""
+    """Allows students to select lecture and tutorial sections separately and add them to cart."""
     if request.user.role != 'Student':
         return render(request, 'courses/access_denied.html')
 
     course = get_object_or_404(Course, id=course_id)
-
-    if EnrollmentCart.objects.filter(student=request.user, course=course).exists():
-        messages.error(request, "You have already added this course to your enrollment cart.")
-        return redirect('review_cart')
+    lecture_sections = Section.objects.filter(course=course, section_type='Lecture')
+    tutorial_sections = Section.objects.filter(course=course, section_type='Tutorial')
 
     if request.method == 'POST':
-        form = EnrollmentCartForm(request.POST, student=request.user, course=course)
-        if form.is_valid():
-            enrollment_cart, created = EnrollmentCart.objects.get_or_create(student=request.user, course=course)
-            enrollment_cart.lecture_section = form.cleaned_data['lecture_section']
-            enrollment_cart.tutorial_section = form.cleaned_data['tutorial_section']
-            enrollment_cart.save()
+        section_id = request.POST.get('section_id')
+        section = get_object_or_404(Section, id=section_id)
 
-            messages.success(request, "Course added to enrollment cart!")
-            return redirect('review_cart')
-    else:
-        form = EnrollmentCartForm(student=request.user, course=course)
+        # ✅ Prevent schedule clashes with sections already in the cart
+        cart_items = EnrollmentCart.objects.filter(student=request.user)
+        for cart_item in cart_items:
+            if cart_item.lecture_section and cart_item.lecture_section.schedule and section.schedule:
+                if (
+                    cart_item.lecture_section.schedule <= section.schedule < cart_item.lecture_section.schedule + timedelta(minutes=cart_item.lecture_section.duration)
+                ):
+                    messages.error(request, f"Cannot add {section.section_type} {section.section_number} as it conflicts with Lecture {cart_item.lecture_section.section_number}.")
+                    return redirect('select_sections', course_id=course.id)
+            
+            if cart_item.tutorial_section and cart_item.tutorial_section.schedule and section.schedule:
+                if (
+                    cart_item.tutorial_section.schedule <= section.schedule < cart_item.tutorial_section.schedule + timedelta(minutes=cart_item.tutorial_section.duration)
+                ):
+                    messages.error(request, f"Cannot add {section.section_type} {section.section_number} as it conflicts with Tutorial {cart_item.tutorial_section.section_number}.")
+                    return redirect('select_sections', course_id=course.id)
 
-    return render(request, 'courses/select_sections.html', {'course': course, 'form': form})
+        # ✅ Add section to cart (Lecture or Tutorial)
+        cart_item, created = EnrollmentCart.objects.get_or_create(student=request.user, course=course)
+        if section.section_type == "Lecture":
+            cart_item.lecture_section = section
+        elif section.section_type == "Tutorial":
+            cart_item.tutorial_section = section
+        cart_item.save()
+
+        messages.success(request, f"{section.section_type} {section.section_number} added to cart successfully!")
+        return redirect('review_cart')
+
+    return render(request, 'courses/select_sections.html', {'course': course, 'lecture_sections': lecture_sections, 'tutorial_sections': tutorial_sections})
+
 
 # 🔹 REVIEW CART (Step 3)
 @login_required(login_url='/users/login/')
