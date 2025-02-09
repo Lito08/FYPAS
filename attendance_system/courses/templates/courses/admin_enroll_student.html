@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Enroll Student in a Section</h2>
+
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+{% endif %}
+
+<form method="post">
+    {% csrf_token %}
+    
+    <div class="mb-3">
+        <label for="student" class="form-label">Select Student</label>
+        {{ form.student }}
+    </div>
+
+    <div class="mb-3">
+        <label for="section" class="form-label">Select Section</label>
+        {{ form.section }}
+        <small class="form-text text-muted">
+            Only sections with available slots are shown.
+        </small>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Enroll Student</button>
+</form>
+
+<a href="{% url 'manage_enrollments' %}" class="btn btn-secondary mt-3">Back to Enrollments</a>
+
+{% endblock %}

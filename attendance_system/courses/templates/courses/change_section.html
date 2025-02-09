@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Change Section for {{ course.name }}</h2>
+
+<p><strong>Current Section:</strong> {{ current_section.section_type }} {{ current_section.section_number }}</p>
+
+<!-- ✅ Lecture Sections -->
+<h4>Select New Lecture Section</h4>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Section</th>
+            <th>Seats Left</th>
+            <th>Schedule</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for section in lecture_sections %}
+        <tr>
+            <td>{{ section.section_type }} {{ section.section_number }}</td>
+            <td>{{ section.max_students|default:30|add:"- "|add:section.enrollment_set.count }}</td>
+            <td>{{ section.schedule|default:"TBA" }}</td>
+            <td>
+                {% if section.schedule and section.enrollment_set.count < section.max_students %}
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="section_id" value="{{ section.id }}">
+                        <button type="submit" class="btn btn-success btn-sm">Change</button>
+                    </form>
+                {% else %}
+                    <button class="btn btn-secondary btn-sm" disabled>Unavailable</button>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- ✅ Tutorial Sections (Only if Required) -->
+{% if course.tutorial_required %}
+<h4>Select New Tutorial Section</h4>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Section</th>
+            <th>Seats Left</th>
+            <th>Schedule</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for section in tutorial_sections %}
+        <tr>
+            <td>{{ section.section_type }} {{ section.section_number }}</td>
+            <td>{{ section.max_students|default:30|add:"- "|add:section.enrollment_set.count }}</td>
+            <td>{{ section.schedule|default:"TBA" }}</td>
+            <td>
+                {% if section.schedule and section.enrollment_set.count < section.max_students %}
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="section_id" value="{{ section.id }}">
+                        <button type="submit" class="btn btn-success btn-sm">Change</button>
+                    </form>
+                {% else %}
+                    <button class="btn btn-secondary btn-sm" disabled>Unavailable</button>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+<a href="{% url 'my_courses' %}" class="btn btn-secondary mt-3">Back to My Courses</a>
+{% endblock %}

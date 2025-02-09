@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Course Enrollment Failed</h2>
+
+<div class="alert alert-danger">
+    <p>Sorry, the course <strong>{{ course.name }}</strong> has reached its maximum capacity.</p>
+    <p>Please select another course or check back later.</p>
+</div>
+
+<a href="{% url 'select_course' %}" class="btn btn-primary">Select Another Course</a>
+{% endblock %}

@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Review Enrollment Cart</h2>
+
+{% if cart_items %}
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Course</th>
+                <th>Lecture Section</th>
+                <th>Tutorial Section</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in cart_items %}
+            <tr>
+                <td>{{ item.course.name }}</td>
+                <td>
+                    {% if item.lecture_section %}
+                        {{ item.lecture_section.section_type }} {{ item.lecture_section.section_number }}
+                        <br><small>Schedule: {{ item.lecture_section.schedule|default:"TBA" }}</small>
+                        <br><small>Seats Left: {{ item.lecture_section.max_students|default:30|add:"- "|add:item.lecture_section.enrollment_set.count }}</small>
+                    {% else %}
+                        <span class="text-danger">❌ Missing</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if item.tutorial_section %}
+                        {{ item.tutorial_section.section_type }} {{ item.tutorial_section.section_number }}
+                        <br><small>Schedule: {{ item.tutorial_section.schedule|default:"TBA" }}</small>
+                        <br><small>Seats Left: {{ item.tutorial_section.max_students|default:30|add:"- "|add:item.tutorial_section.enrollment_set.count }}</small>
+                    {% elif item.course.tutorial_required %}
+                        <span class="text-danger">❌ Missing</span>
+                    {% else %}
+                        Not Required
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{% url 'select_sections' item.course.id %}" class="btn btn-warning btn-sm">Edit</a>
+                    <a href="{% url 'remove_from_cart' item.id %}" class="btn btn-danger btn-sm">Remove</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- ✅ Initialize a flag to check if all requirements are met -->
+    {% with cart_valid=True %}
+        {% for item in cart_items %}
+            {% if item.lecture_section is None %}
+                <p class="text-danger">⚠️ You must select a Lecture for {{ item.course.name }}.</p>
+                {% with cart_valid=False %}{% endwith %}
+            {% endif %}
+
+            {% if item.course.tutorial_required and item.tutorial_section is None %}
+                <p class="text-danger">⚠️ You must select a Tutorial for {{ item.course.name }}.</p>
+                {% with cart_valid=False %}{% endwith %}
+            {% endif %}
+        {% endfor %}
+
+        <!-- ✅ Show "Enroll Now" only if all conditions are met -->
+        {% if cart_valid %}
+            <a href="{% url 'finalize_enrollment' %}" class="btn btn-success">Enroll Now</a>
+        {% else %}
+            <button class="btn btn-secondary" disabled>Enroll Now</button>
+        {% endif %}
+    {% endwith %}
+{% else %}
+    <p>Your cart is empty. <a href="{% url 'select_course' %}">Select Courses</a></p>
+{% endif %}
+
+<a href="{% url 'select_course' %}" class="btn btn-secondary mt-3">Add More Courses</a>
+{% endblock %}

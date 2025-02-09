@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Drop Course: {{ course.name }}</h2>
+
+<p>Are you sure you want to drop this course? You will be removed from all sections.</p>
+
+<form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger">Confirm Drop</button>
+    <a href="{% url 'my_courses' %}" class="btn btn-secondary">Cancel</a>
+</form>
+
+{% endblock %}
