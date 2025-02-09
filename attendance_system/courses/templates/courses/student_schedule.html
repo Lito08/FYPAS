@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>My Schedule</h2>
+
+<!-- ✅ Enrolled Courses Table -->
+{% if enrollments %}
+    <h4>Enrolled Courses</h4>
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Course</th>
+                <th>Section</th>
+                <th>Type</th>
+                <th>Schedule</th>
+                <th>Duration</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for enrollment in enrollments %}
+            <tr>
+                <td>{{ enrollment.section.course.name }}</td>
+                <td>{{ enrollment.section.section_number }}</td>
+                <td>{{ enrollment.section.section_type }}</td>
+                <td>
+                    {% if enrollment.section.schedule %}
+                        {{ enrollment.section.schedule|date:"l, d M Y H:i A" }}
+                    {% else %}
+                        Not Scheduled
+                    {% endif %}
+                </td>
+                <td>{{ enrollment.section.duration }} minutes</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- ✅ Weekly Schedule Calendar -->
+    <h4>Weekly Schedule</h4>
+    <div id="calendar"></div>
+{% else %}
+    <p>You are not enrolled in any courses yet.</p>
+{% endif %}
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        var checkFullCalendar = setInterval(function () {
+            if (typeof FullCalendar !== "undefined") {
+                clearInterval(checkFullCalendar);
+
+                var calendarEl = document.getElementById("calendar");
+
+                if (calendarEl) {
+                    var calendar = new FullCalendar.Calendar(calendarEl, {
+                        initialView: "timeGridWeek",
+                        headerToolbar: {
+                            left: "prev,next today",
+                            center: "title",
+                            right: "timeGridWeek,timeGridDay"
+                        },
+                        slotMinTime: "08:00:00",
+                        slotMaxTime: "22:00:00",
+                        events: [
+                            {% for enrollment in enrollments %}
+                            {
+                                title: "{{ enrollment.section.course.name }} - {{ enrollment.section.section_type }}",
+                                start: "{{ enrollment.section.schedule|date:'Y-m-d' }}T{{ enrollment.section.schedule|date:'H:i:s' }}",
+                                end: "{{ enrollment.section.schedule|date:'Y-m-d' }}T{{ enrollment.section.schedule|time:'H:i:s'|add:enrollment.section.duration }}",
+                                color: "{% if enrollment.section.section_type == 'Lecture' %}#007bff{% else %}#28a745{% endif %}"
+                            },
+                            {% endfor %}
+                        ]
+                    });
+
+                    calendar.render();
+                }
+            }
+        }, 100);
+    });
+</script>
+{% endblock %}
