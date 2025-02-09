@@ -21,8 +21,29 @@ def create_course_view(request):
     if request.method == 'POST':
         form = CourseForm(request.POST)
         if form.is_valid():
-            form.save()
-            messages.success(request, "Course created successfully!")
+            course = form.save()
+
+            # ✅ Auto-create Lecture Section
+            if course.lecture_required:
+                Section.objects.create(
+                    course=course,
+                    section_type='Lecture',
+                    section_number=1,  # Default section number
+                    schedule=None,  # Can be set later
+                    duration=60  # Default 1 hour
+                )
+
+            # ✅ Auto-create Tutorial Section
+            if course.tutorial_required:
+                Section.objects.create(
+                    course=course,
+                    section_type='Tutorial',
+                    section_number=1,  # Default section number
+                    schedule=None,  # Can be set later
+                    duration=60  # Default 1 hour
+                )
+
+            messages.success(request, "Course and required sections created successfully!")
             return redirect('manage_courses')
     else:
         form = CourseForm()
@@ -32,14 +53,38 @@ def create_course_view(request):
 @login_required(login_url='/users/login/')
 def edit_course_view(request, course_id):
     course = get_object_or_404(Course, id=course_id)
+
     if request.user.role not in ['Superadmin', 'Admin']:
         return render(request, 'access_denied.html')
 
     if request.method == 'POST':
         form = CourseForm(request.POST, instance=course)
         if form.is_valid():
-            form.save()
-            messages.success(request, "Course updated successfully!")
+            course = form.save()
+
+            # ✅ Handle Lecture Section Creation/Deletion
+            if course.lecture_required:
+                Section.objects.get_or_create(
+                    course=course,
+                    section_type='Lecture',
+                    section_number=1,  # Default section number
+                    defaults={'schedule': None, 'duration': 60}
+                )
+            else:
+                Section.objects.filter(course=course, section_type='Lecture').delete()
+
+            # ✅ Handle Tutorial Section Creation/Deletion
+            if course.tutorial_required:
+                Section.objects.get_or_create(
+                    course=course,
+                    section_type='Tutorial',
+                    section_number=1,  # Default section number
+                    defaults={'schedule': None, 'duration': 60}
+                )
+            else:
+                Section.objects.filter(course=course, section_type='Tutorial').delete()
+
+            messages.success(request, "Course and sections updated successfully!")
             return redirect('manage_courses')
     else:
         form = CourseForm(instance=course)
@@ -66,7 +111,7 @@ def manage_sections_view(request):
 def create_section_view(request):
     if request.user.role not in ['Superadmin', 'Admin']:
         return render(request, 'access_denied.html')
-
+    
     if request.method == 'POST':
         form = SectionForm(request.POST)
         if form.is_valid():

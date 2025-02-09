@@ -5,7 +5,7 @@ from datetime import timedelta
 class CourseForm(forms.ModelForm):
     class Meta:
         model = Course
-        fields = ['code', 'name', 'description']
+        fields = ['code', 'name', 'description', 'lecture_required', 'tutorial_required']  # ✅ Added checkboxes
 
 class SectionForm(forms.ModelForm):
     schedule = forms.DateTimeField(

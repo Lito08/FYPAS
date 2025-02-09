@@ -11,6 +11,8 @@
         <tr>
             <th>Course Code</th>
             <th>Course Name</th>
+            <th>Lecture Required</th>
+            <th>Tutorial Required</th>
             <th>Actions</th>
         </tr>
     </thead>
@@ -19,6 +21,20 @@
         <tr>
             <td>{{ course.code }}</td>
             <td>{{ course.name }}</td>
+            <td>
+                {% if course.lecture_required %}
+                    ✅
+                {% else %}
+                    ❌
+                {% endif %}
+            </td>
+            <td>
+                {% if course.tutorial_required %}
+                    ✅
+                {% else %}
+                    ❌
+                {% endif %}
+            </td>
             <td>
                 <a href="{% url 'edit_course' course.id %}" class="btn btn-warning btn-sm">Edit</a>
                 <a href="{% url 'delete_course' course.id %}" class="btn btn-danger btn-sm">Delete</a>

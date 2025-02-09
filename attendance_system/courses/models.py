@@ -5,9 +5,11 @@ from users.models import User
 
 class Course(models.Model):
     """Main Course Model"""
-    code = models.CharField(max_length=10, unique=True)  # e.g., "CS101"
-    name = models.CharField(max_length=100)  # e.g., "Computer Science 101"
+    code = models.CharField(max_length=10, unique=True)
+    name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
+    lecture_required = models.BooleanField(default=False)  # ✅ New field
+    tutorial_required = models.BooleanField(default=False)  # ✅ New field
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
