@@ -141,3 +141,22 @@ def unenroll_student_view(request, enrollment_id):
     enrollment.delete()
     messages.success(request, "Student unenrolled successfully!")
     return redirect('manage_enrollments')
+
+@login_required(login_url='/users/login/')
+def student_enroll_view(request):
+    """Allows students to self-enroll in sections while ensuring no schedule conflicts."""
+    if request.user.role != 'Student':  # ✅ Only students can access this page
+        return render(request, 'access_denied.html')
+
+    if request.method == 'POST':
+        form = EnrollmentForm(request.POST)
+        if form.is_valid():
+            enrollment = form.save(commit=False)
+            enrollment.student = request.user  # ✅ Explicitly set the student before saving
+            enrollment.save()
+            messages.success(request, "You have successfully enrolled in the section!")
+            return redirect('student_enrollment')
+    else:
+        form = EnrollmentForm()
+
+    return render(request, 'courses/student_enroll.html', {'form': form})

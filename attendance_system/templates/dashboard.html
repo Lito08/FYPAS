@@ -14,11 +14,13 @@
     {% elif user.role == "Admin" %}
         <p>You are an Admin.</p>
     {% endif %}
+
 {% elif user.role == "Lecturer" %}
     <p>You are a Lecturer. Manage attendance and materials.</p>
     <a href="#" class="btn btn-primary">Manage Attendance</a>
 {% elif user.role == "Student" %}
     <p>You are a Student. View your attendance records and announcements.</p>
+    <a href="{% url 'student_enrollment' %}" class="btn btn-primary">Enrollment</a>
     <a href="#" class="btn btn-primary">View Attendance</a>
 {% endif %}
 

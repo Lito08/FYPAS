@@ -1,5 +1,6 @@
 from django import forms
 from .models import Course, Section, Enrollment
+from datetime import timedelta
 
 class CourseForm(forms.ModelForm):
     class Meta:
@@ -48,19 +49,40 @@ class SectionForm(forms.ModelForm):
 class EnrollmentForm(forms.ModelForm):
     class Meta:
         model = Enrollment
-        fields = ['student', 'section']
+        fields = ['section']
+
+    def __init__(self, *args, **kwargs):
+        """Filter available sections for the student."""
+        self.student = kwargs.pop('student', None)  # ✅ Extract student from kwargs
+        super().__init__(*args, **kwargs)
+
+        if self.student:
+            # ✅ Get enrolled sections for the student
+            enrolled_sections = Enrollment.objects.filter(student=self.student).values_list('section__schedule', 'section__duration')
+            unavailable_times = []
+
+            for schedule, duration in enrolled_sections:
+                if schedule and duration:  # ✅ Ensure schedule is not None
+                    unavailable_times.append((schedule, schedule + timedelta(minutes=duration)))
+
+            # ✅ Filter out sections that overlap with the student's existing schedule
+            if unavailable_times:
+                self.fields['section'].queryset = Section.objects.exclude(
+                    schedule__isnull=False,
+                    schedule__range=[t[0] for t in unavailable_times]
+                )
 
     def clean(self):
         """Run additional validation for student schedule conflicts."""
         cleaned_data = super().clean()
-        student = cleaned_data.get("student")
         section = cleaned_data.get("section")
 
-        if student and section:
+        if self.student and section:
             try:
-                enrollment = Enrollment(student=student, section=section)
+                enrollment = Enrollment(student=self.student, section=section)
                 enrollment.clean()  # Call the model validation
             except forms.ValidationError as e:
                 raise forms.ValidationError(e)
 
         return cleaned_data
+
