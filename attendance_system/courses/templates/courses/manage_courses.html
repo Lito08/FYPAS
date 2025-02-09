@@ -36,6 +36,7 @@
                 {% endif %}
             </td>
             <td>
+                <a href="{% url 'view_course_sections' course.id %}" class="btn btn-info btn-sm">View Details</a>  <!-- ✅ New Button -->
                 <a href="{% url 'edit_course' course.id %}" class="btn btn-warning btn-sm">Edit</a>
                 <a href="{% url 'delete_course' course.id %}" class="btn btn-danger btn-sm">Delete</a>
             </td>

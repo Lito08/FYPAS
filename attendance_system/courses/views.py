@@ -98,6 +98,17 @@ def delete_course_view(request, course_id):
     messages.success(request, "Course deleted successfully!")
     return redirect('manage_courses')
 
+@login_required(login_url='/users/login/')
+def view_course_sections_view(request, course_id):
+    """Displays all sections related to a specific course."""
+    course = get_object_or_404(Course, id=course_id)
+
+    if request.user.role not in ['Superadmin', 'Admin']:
+        return render(request, 'access_denied.html')
+
+    sections = Section.objects.filter(course=course)
+    return render(request, 'courses/view_course_sections.html', {'course': course, 'sections': sections})
+
 # 🔹 MANAGE SECTIONS SEPARATELY
 @login_required(login_url='/users/login/')
 def manage_sections_view(request):
@@ -108,20 +119,28 @@ def manage_sections_view(request):
     return render(request, 'courses/manage_sections.html', {'sections': sections})
 
 @login_required(login_url='/users/login/')
-def create_section_view(request):
+def create_section_view(request, course_id=None):
+    """Allows Admins to create a section for a specific course."""
     if request.user.role not in ['Superadmin', 'Admin']:
         return render(request, 'access_denied.html')
-    
+
+    course = None
+    if course_id:
+        course = get_object_or_404(Course, id=course_id)
+
     if request.method == 'POST':
         form = SectionForm(request.POST)
         if form.is_valid():
-            form.save()
+            section = form.save(commit=False)
+            if course:
+                section.course = course  # ✅ Automatically assign the course
+            section.save()
             messages.success(request, "Section created successfully!")
-            return redirect('manage_sections')
+            return redirect('view_course_sections', course_id=course.id)
     else:
-        form = SectionForm()
+        form = SectionForm(initial={'course': course})  # ✅ Prefill course field if provided
 
-    return render(request, 'courses/create_section.html', {'form': form})
+    return render(request, 'courses/create_section.html', {'form': form, 'course': course})
 
 @login_required(login_url='/users/login/')
 def edit_section_view(request, section_id):
