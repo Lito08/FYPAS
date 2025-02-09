@@ -4,19 +4,14 @@
 <h2>Dashboard</h2>
 <p>Welcome, {{ user.first_name }}!</p>
 
-{% if user.role == "Superadmin" or user.role == "Admin" %}
-    <a href="{% url 'manage_users' %}" class="btn btn-primary">Manage Users</a>
-    {% if user.role == "Superadmin"%}
-        <p>You are a Superadmin. Oversee the system and manage lecturers and students.</p>
-    {% elif user.role == "Admin" %}
-        <p>You are an Admin.</p>
-    {% endif %}
+{% if user.role == "Superadmin" %}
+    <p>You are a Superadmin. Oversee the system and manage lecturers and students.</p>
+{% elif user.role == "Admin" %}
+    <p>You are an Admin.</p>
 {% elif user.role == "Lecturer" %}
     <p>You are a Lecturer. Manage attendance and materials.</p>
-    <a href="#" class="btn btn-primary">Manage Attendance</a>
 {% elif user.role == "Student" %}
     <p>You are a Student. View your attendance records and announcements.</p>
-    <a href="#" class="btn btn-primary">View Attendance</a>
 {% endif %}
 
 {% endblock %}

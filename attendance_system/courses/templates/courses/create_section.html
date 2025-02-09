@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Create a New Section{% if course %} for {{ course.name }}{% endif %}</h2>
+
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+{% endif %}
+
+<form method="post">
+    {% csrf_token %}
+
+    {% if course %}
+        <!-- ✅ Show course name but keep it uneditable -->
+        <label>Course:</label>
+        <input type="text" class="form-control" value="{{ course.name }}" disabled>
+        <input type="hidden" name="course" value="{{ course.id }}">  <!-- ✅ Keep course ID hidden -->
+
+        <!-- ✅ Render all other form fields except 'course' -->
+        {% for field in form %}
+            {% if field.name != "course" %}  <!-- ✅ Exclude the course field from rendering -->
+                <div class="mb-3">
+                    <label class="form-label">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                        <div class="text-danger">
+                            {% for error in field.errors %}
+                                {{ error }}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+            {% endif %}
+        {% endfor %}
+
+    {% else %}
+        {{ form.as_p }}  <!-- ✅ Normal form rendering when not pre-selecting a course -->
+    {% endif %}
+
+    <button type="submit" class="btn btn-primary">Create Section</button>
+</form>
+
+{% if course %}
+    <a href="{% url 'view_course_sections' course.id %}" class="btn btn-secondary mt-3">Back to Course Sections</a>
+{% else %}
+    <a href="{% url 'manage_sections' %}" class="btn btn-secondary mt-3">Back to Sections</a>
+{% endif %}
+{% endblock %}

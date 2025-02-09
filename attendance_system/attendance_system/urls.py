@@ -6,4 +6,5 @@ urlpatterns = [
     path('', dashboard_view, name='home'),  # Redirect '/' to dashboard
     path('admin/', admin.site.urls),
     path('users/', include('users.urls')),
+    path('courses/', include('courses.urls')),
 ]

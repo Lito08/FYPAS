@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Manage Courses</h2>
+
+<a href="{% url 'create_course' %}" class="btn btn-success">Add New Course</a>
+<a href="{% url 'manage_sections' %}" class="btn btn-primary">Manage Sections</a>
+
+<table class="table mt-3">
+    <thead>
+        <tr>
+            <th>Course Code</th>
+            <th>Course Name</th>
+            <th>Lecture Required</th>
+            <th>Tutorial Required</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for course in courses %}
+        <tr>
+            <td>{{ course.code }}</td>
+            <td>{{ course.name }}</td>
+            <td>
+                {% if course.lecture_required %}
+                    ✅
+                {% else %}
+                    ❌
+                {% endif %}
+            </td>
+            <td>
+                {% if course.tutorial_required %}
+                    ✅
+                {% else %}
+                    ❌
+                {% endif %}
+            </td>
+            <td>
+                <a href="{% url 'view_course_sections' course.id %}" class="btn btn-info btn-sm">View Details</a>  <!-- ✅ New Button -->
+                <a href="{% url 'edit_course' course.id %}" class="btn btn-warning btn-sm">Edit</a>
+                <a href="{% url 'delete_course' course.id %}" class="btn btn-danger btn-sm">Delete</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endblock %}
