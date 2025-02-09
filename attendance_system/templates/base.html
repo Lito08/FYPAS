@@ -85,11 +85,14 @@
             <a href="{% url 'manage_sections' %}" class="{% if request.path == '/manage-sections/' %}active{% endif %}">Manage Sections</a>
             <a href="{% url 'manage_enrollments' %}" class="{% if request.path == '/manage-enrollments/' %}active{% endif %}">Manage Enrollments</a>
         {% elif user.role == "Lecturer" %}
-            <a href="{% url 'take_attendance' %}" class="{% if request.path == '/take-attendance/' %}active{% endif %}">Take Attendance</a>
+            <a href="{% url 'enable_attendance' %}">Enable Attendance</a>
+            <a href="{% url 'attendance_records' %}">View Attendance Records</a>
         {% elif user.role == "Student" %}
             <a href="{% url 'select_course' %}" class="{% if request.path == '/select-course/' %}active{% endif %}">Enrollment</a>
             <a href="{% url 'my_courses' %}" class="{% if request.path == '/my-courses/' %}active{% endif %}">My Courses</a>
             <a href="{% url 'student_schedule' %}" class="{% if request.path == '/student-schedule/' %}active{% endif %}">My Schedule</a>
+            <a href="{% url 'take_attendance' %}">Take Attendance</a>
+            <a href="{% url 'attendance_records' %}">My Attendance</a>
         {% endif %}
         <a href="{% url 'logout' %}" class="{% if request.path == '/logout/' %}active{% endif %}">Logout</a>
     {% else %}
