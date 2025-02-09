@@ -254,8 +254,15 @@ def select_sections_view(request, course_id):
     lecture_sections = Section.objects.filter(course=course, section_type='Lecture')
     tutorial_sections = Section.objects.filter(course=course, section_type='Tutorial')
 
-    # ✅ Get or create cart item (Ensure only one section per course)
-    cart_item, created = EnrollmentCart.objects.get_or_create(student=request.user, course=course)
+    # ✅ Get the cart item for this student and course, ensuring only one exists
+    cart_item, created = EnrollmentCart.objects.get_or_create(
+        student=request.user, 
+        course=course,
+        defaults={'lecture_section': None, 'tutorial_section': None}
+    )
+
+    # ✅ Delete duplicate cart entries (if any exist)
+    EnrollmentCart.objects.filter(student=request.user, course=course).exclude(id=cart_item.id).delete()
 
     if request.method == 'POST':
         section_id = request.POST.get('section_id')
@@ -276,26 +283,20 @@ def select_sections_view(request, course_id):
                 messages.error(request, f"Cannot add {section.section_type} {section.section_number} as it conflicts with Tutorial {cart_item.tutorial_section.section_number}.")
                 return redirect('select_sections', course_id=course.id)
 
-        # ✅ Replace existing selection instead of adding multiple sections
+        # ✅ Add section to cart (Lecture or Tutorial)
         if section.section_type == "Lecture":
-            if cart_item.lecture_section:
-                messages.warning(request, f"Lecture {cart_item.lecture_section.section_number} has been replaced with {section.section_number}.")
-            cart_item.lecture_section = section  # ✅ Replace previous selection
-
+            cart_item.lecture_section = section  # Ensures only one lecture section
         elif section.section_type == "Tutorial":
-            if cart_item.tutorial_section:
-                messages.warning(request, f"Tutorial {cart_item.tutorial_section.section_number} has been replaced with {section.section_number}.")
-            cart_item.tutorial_section = section  # ✅ Replace previous selection
-        
+            cart_item.tutorial_section = section  # Ensures only one tutorial section
         cart_item.save()
 
         messages.success(request, f"{section.section_type} {section.section_number} added to cart successfully!")
 
         # ✅ Stay on page until all required selections are made
         if cart_item.lecture_section and (not course.tutorial_required or cart_item.tutorial_section):
-            return redirect('review_cart')  # Proceed if all required selections are met
+            return redirect('review_cart')  # Proceed to review if all required sections are added
 
-        return redirect('select_sections', course_id=course.id)  # Stay on page until selection is complete
+        return redirect('select_sections', course_id=course.id)  # Stay on page if requirements are not met
 
     return render(request, 'courses/select_sections.html', {
         'course': course,
