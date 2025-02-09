@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .models import Course, Section, Enrollment, EnrollmentCart
 from .forms import CourseForm, SectionForm, EnrollmentForm, EnrollmentCartForm
+from datetime import timedelta
 
 # 🔹 MANAGE COURSES
 @login_required(login_url='/users/login/')
@@ -253,40 +254,55 @@ def select_sections_view(request, course_id):
     lecture_sections = Section.objects.filter(course=course, section_type='Lecture')
     tutorial_sections = Section.objects.filter(course=course, section_type='Tutorial')
 
+    # ✅ Get or create cart item (Ensure only one section per course)
+    cart_item, created = EnrollmentCart.objects.get_or_create(student=request.user, course=course)
+
     if request.method == 'POST':
         section_id = request.POST.get('section_id')
         section = get_object_or_404(Section, id=section_id)
 
         # ✅ Prevent schedule clashes with sections already in the cart
-        cart_items = EnrollmentCart.objects.filter(student=request.user)
-        for cart_item in cart_items:
-            if cart_item.lecture_section and cart_item.lecture_section.schedule and section.schedule:
-                if (
-                    cart_item.lecture_section.schedule <= section.schedule < cart_item.lecture_section.schedule + timedelta(minutes=cart_item.lecture_section.duration)
-                ):
-                    messages.error(request, f"Cannot add {section.section_type} {section.section_number} as it conflicts with Lecture {cart_item.lecture_section.section_number}.")
-                    return redirect('select_sections', course_id=course.id)
-            
-            if cart_item.tutorial_section and cart_item.tutorial_section.schedule and section.schedule:
-                if (
-                    cart_item.tutorial_section.schedule <= section.schedule < cart_item.tutorial_section.schedule + timedelta(minutes=cart_item.tutorial_section.duration)
-                ):
-                    messages.error(request, f"Cannot add {section.section_type} {section.section_number} as it conflicts with Tutorial {cart_item.tutorial_section.section_number}.")
-                    return redirect('select_sections', course_id=course.id)
+        if cart_item.lecture_section and cart_item.lecture_section.schedule and section.schedule:
+            if (
+                cart_item.lecture_section.schedule <= section.schedule < cart_item.lecture_section.schedule + timedelta(minutes=cart_item.lecture_section.duration)
+            ):
+                messages.error(request, f"Cannot add {section.section_type} {section.section_number} as it conflicts with Lecture {cart_item.lecture_section.section_number}.")
+                return redirect('select_sections', course_id=course.id)
 
-        # ✅ Add section to cart (Lecture or Tutorial)
-        cart_item, created = EnrollmentCart.objects.get_or_create(student=request.user, course=course)
+        if cart_item.tutorial_section and cart_item.tutorial_section.schedule and section.schedule:
+            if (
+                cart_item.tutorial_section.schedule <= section.schedule < cart_item.tutorial_section.schedule + timedelta(minutes=cart_item.tutorial_section.duration)
+            ):
+                messages.error(request, f"Cannot add {section.section_type} {section.section_number} as it conflicts with Tutorial {cart_item.tutorial_section.section_number}.")
+                return redirect('select_sections', course_id=course.id)
+
+        # ✅ Replace existing selection instead of adding multiple sections
         if section.section_type == "Lecture":
-            cart_item.lecture_section = section
+            if cart_item.lecture_section:
+                messages.warning(request, f"Lecture {cart_item.lecture_section.section_number} has been replaced with {section.section_number}.")
+            cart_item.lecture_section = section  # ✅ Replace previous selection
+
         elif section.section_type == "Tutorial":
-            cart_item.tutorial_section = section
+            if cart_item.tutorial_section:
+                messages.warning(request, f"Tutorial {cart_item.tutorial_section.section_number} has been replaced with {section.section_number}.")
+            cart_item.tutorial_section = section  # ✅ Replace previous selection
+        
         cart_item.save()
 
         messages.success(request, f"{section.section_type} {section.section_number} added to cart successfully!")
-        return redirect('review_cart')
 
-    return render(request, 'courses/select_sections.html', {'course': course, 'lecture_sections': lecture_sections, 'tutorial_sections': tutorial_sections})
+        # ✅ Stay on page until all required selections are made
+        if cart_item.lecture_section and (not course.tutorial_required or cart_item.tutorial_section):
+            return redirect('review_cart')  # Proceed if all required selections are met
 
+        return redirect('select_sections', course_id=course.id)  # Stay on page until selection is complete
+
+    return render(request, 'courses/select_sections.html', {
+        'course': course,
+        'lecture_sections': lecture_sections,
+        'tutorial_sections': tutorial_sections,
+        'cart_item': cart_item
+    })
 
 # 🔹 REVIEW CART (Step 3)
 @login_required(login_url='/users/login/')
@@ -319,12 +335,22 @@ def finalize_enrollment_view(request):
 
     cart_items = EnrollmentCart.objects.filter(student=request.user)
 
+    # ✅ Ensure each course has 1 Lecture & 1 Tutorial (if required)
+    for cart_item in cart_items:
+        if not cart_item.lecture_section:
+            messages.error(request, f"⚠️ You must select a Lecture for {cart_item.course.name}.")
+            return redirect('review_cart')
+        if cart_item.course.tutorial_required and not cart_item.tutorial_section:
+            messages.error(request, f"⚠️ You must select a Tutorial for {cart_item.course.name}.")
+            return redirect('review_cart')
+
+    # ✅ Proceed with Enrollment
     for cart_item in cart_items:
         Enrollment.objects.create(student=request.user, section=cart_item.lecture_section)
         if cart_item.tutorial_section:
             Enrollment.objects.create(student=request.user, section=cart_item.tutorial_section)
 
-    # ✅ Clear cart after finalizing enrollment
+    # ✅ Clear the cart after finalizing enrollment
     cart_items.delete()
 
     messages.success(request, "Enrollment completed successfully!")

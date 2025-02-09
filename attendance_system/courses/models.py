@@ -101,8 +101,14 @@ class EnrollmentCart(models.Model):
         return f"{self.student.matric_id} - {self.course.name} (Lecture: {self.lecture_section}, Tutorial: {self.tutorial_section})"
 
     def clean(self):
-        """Prevent students from adding conflicting sections to their cart."""
+        """Prevent students from adding incomplete selections and conflicting sections to their cart."""
         cart_items = EnrollmentCart.objects.filter(student=self.student).exclude(id=self.id)  # Exclude itself if updating
+
+        # ✅ Ensure course requirements are met before allowing finalization
+        if not self.lecture_section:
+            raise ValidationError(f"⚠️ You must select a Lecture section for {self.course.name}.")
+        if self.course.tutorial_required and not self.tutorial_section:
+            raise ValidationError(f"⚠️ You must select a Tutorial section for {self.course.name}.")
 
         # ✅ Check for schedule conflicts with already selected sections
         for cart_item in cart_items:
@@ -110,19 +116,19 @@ class EnrollmentCart(models.Model):
                 if (
                     cart_item.lecture_section.schedule <= self.lecture_section.schedule < cart_item.lecture_section.schedule + timedelta(minutes=cart_item.lecture_section.duration)
                 ):
-                    raise ValidationError(f"Lecture {self.lecture_section.section_number} conflicts with Lecture {cart_item.lecture_section.section_number}.")
+                    raise ValidationError(f"⚠️ Lecture {self.lecture_section.section_number} conflicts with Lecture {cart_item.lecture_section.section_number}.")
 
             if self.tutorial_section and cart_item.tutorial_section and self.tutorial_section.schedule:
                 if (
                     cart_item.tutorial_section.schedule <= self.tutorial_section.schedule < cart_item.tutorial_section.schedule + timedelta(minutes=cart_item.tutorial_section.duration)
                 ):
-                    raise ValidationError(f"Tutorial {self.tutorial_section.section_number} conflicts with Tutorial {cart_item.tutorial_section.section_number}.")
+                    raise ValidationError(f"⚠️ Tutorial {self.tutorial_section.section_number} conflicts with Tutorial {cart_item.tutorial_section.section_number}.")
 
         # ✅ Ensure the selected section is not already full
         if self.lecture_section and Enrollment.objects.filter(section=self.lecture_section).count() >= self.lecture_section.max_students:
-            raise ValidationError(f"Lecture section {self.lecture_section.section_number} is full. Please select another.")
+            raise ValidationError(f"⚠️ Lecture section {self.lecture_section.section_number} is full. Please select another.")
 
         if self.tutorial_section and Enrollment.objects.filter(section=self.tutorial_section).count() >= self.tutorial_section.max_students:
-            raise ValidationError(f"Tutorial section {self.tutorial_section.section_number} is full. Please select another.")
+            raise ValidationError(f"⚠️ Tutorial section {self.tutorial_section.section_number} is full. Please select another.")
 
         super().clean()

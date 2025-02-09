@@ -3,6 +3,27 @@
 {% block content %}
 <h2>Select Sections for {{ course.name }}</h2>
 
+<!-- ✅ Show Section Requirements Progress -->
+<p><strong>Requirements:</strong></p>
+<ul>
+    <li>Lecture: 
+        {% if cart_item.lecture_section %}
+            ✅ Selected ({{ cart_item.lecture_section.section_number }})
+        {% else %}
+            ❌ Not Selected
+        {% endif %}
+    </li>
+    {% if course.tutorial_required %}
+        <li>Tutorial: 
+            {% if cart_item.tutorial_section %}
+                ✅ Selected ({{ cart_item.tutorial_section.section_number }})
+            {% else %}
+                ❌ Not Selected
+            {% endif %}
+        </li>
+    {% endif %}
+</ul>
+
 <!-- ✅ Lecture Sections -->
 <h4>Lecture Sections</h4>
 <table class="table">
@@ -21,12 +42,14 @@
             <td>{{ section.max_students|default:30|add:"- "|add:section.enrollment_set.count }}</td>
             <td>{{ section.schedule|default:"TBA" }}</td>
             <td>
-                {% if section.enrollment_set.count < section.max_students %}
+                {% if section.enrollment_set.count < section.max_students and not cart_item.lecture_section %}
                     <form method="post">
                         {% csrf_token %}
                         <input type="hidden" name="section_id" value="{{ section.id }}">
                         <button type="submit" class="btn btn-success btn-sm">Add to Cart</button>
                     </form>
+                {% elif cart_item.lecture_section %}
+                    <button class="btn btn-secondary btn-sm" disabled>Lecture Selected</button>
                 {% else %}
                     <button class="btn btn-secondary btn-sm" disabled>Full</button>
                 {% endif %}
@@ -55,12 +78,14 @@
             <td>{{ section.max_students|default:30|add:"- "|add:section.enrollment_set.count }}</td>
             <td>{{ section.schedule|default:"TBA" }}</td>
             <td>
-                {% if section.enrollment_set.count < section.max_students %}
+                {% if section.enrollment_set.count < section.max_students and not cart_item.tutorial_section %}
                     <form method="post">
                         {% csrf_token %}
                         <input type="hidden" name="section_id" value="{{ section.id }}">
                         <button type="submit" class="btn btn-success btn-sm">Add to Cart</button>
                     </form>
+                {% elif cart_item.tutorial_section %}
+                    <button class="btn btn-secondary btn-sm" disabled>Tutorial Selected</button>
                 {% else %}
                     <button class="btn btn-secondary btn-sm" disabled>Full</button>
                 {% endif %}
@@ -69,6 +94,13 @@
         {% endfor %}
     </tbody>
 </table>
+{% endif %}
+
+<!-- ✅ Show Proceed Button Only If Requirements Are Met -->
+{% if cart_item.lecture_section %}
+    {% if not course.tutorial_required or cart_item.tutorial_section %}
+        <a href="{% url 'review_cart' %}" class="btn btn-primary mt-3">Proceed to Cart</a>
+    {% endif %}
 {% endif %}
 
 <a href="{% url 'select_course' %}" class="btn btn-secondary mt-3">Back to Course Selection</a>
