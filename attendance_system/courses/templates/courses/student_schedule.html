@@ -35,47 +35,51 @@
         </tbody>
     </table>
 
-    <!-- ✅ Weekly Schedule Calendar -->
+    <!-- ✅ Weekly Schedule Table -->
     <h4>Weekly Schedule</h4>
-    <div id="calendar"></div>
+    <table class="table table-bordered text-center">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Monday</th>
+                <th>Tuesday</th>
+                <th>Wednesday</th>
+                <th>Thursday</th>
+                <th>Friday</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for hour in hours %}
+            <tr>
+                <td>{{ hour }}:00</td>
+                {% for day in weekdays %}
+                    {% with class_found=False %}
+                    {% for enrollment in enrollments %}
+                        {% if enrollment.section.schedule|date:"l" == day and enrollment.section.schedule|date:"H" == hour %}
+                            {% if not class_found %}
+                                <td rowspan="{{ enrollment.section.duration|divisibleby:60|yesno:'2,3,4' }}" 
+                                    class="class-box" style="background-color: #f8d7da; padding: 10px; border-radius: 5px;">
+                                    <strong>{{ enrollment.section.course.name }}</strong><br>
+                                    {{ enrollment.section.section_type }} ({{ enrollment.section.duration }} min)
+                                </td>
+                                {% with class_found=True %}
+                                {% endwith %}
+                            {% endif %}
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if not class_found %}
+                        <td></td>  <!-- Empty cell for hours with no class -->
+                    {% endif %}
+                    {% endwith %}
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
 {% else %}
     <p>You are not enrolled in any courses yet.</p>
 {% endif %}
 
-<script>
-    document.addEventListener("DOMContentLoaded", function () {
-        var checkFullCalendar = setInterval(function () {
-            if (typeof FullCalendar !== "undefined") {
-                clearInterval(checkFullCalendar);
-
-                var calendarEl = document.getElementById("calendar");
-
-                if (calendarEl) {
-                    var calendar = new FullCalendar.Calendar(calendarEl, {
-                        initialView: "timeGridWeek",
-                        headerToolbar: {
-                            left: "prev,next today",
-                            center: "title",
-                            right: "timeGridWeek,timeGridDay"
-                        },
-                        slotMinTime: "08:00:00",
-                        slotMaxTime: "22:00:00",
-                        events: [
-                            {% for enrollment in enrollments %}
-                            {
-                                title: "{{ enrollment.section.course.name }} - {{ enrollment.section.section_type }}",
-                                start: "{{ enrollment.section.schedule|date:'Y-m-d' }}T{{ enrollment.section.schedule|date:'H:i:s' }}",
-                                end: "{{ enrollment.section.schedule|date:'Y-m-d' }}T{{ enrollment.section.schedule|time:'H:i:s'|add:enrollment.section.duration }}",
-                                color: "{% if enrollment.section.section_type == 'Lecture' %}#007bff{% else %}#28a745{% endif %}"
-                            },
-                            {% endfor %}
-                        ]
-                    });
-
-                    calendar.render();
-                }
-            }
-        }, 100);
-    });
-</script>
 {% endblock %}

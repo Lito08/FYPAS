@@ -1,5 +1,3 @@
-import json
-from django.utils.dateformat import format
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -362,10 +360,18 @@ def finalize_enrollment_view(request):
 # 🔹 VIEW STUDENT SCHEDULE
 @login_required(login_url='/users/login/')
 def student_schedule_view(request):
-    """Displays enrolled courses & weekly schedule."""
+    """Displays the enrolled sections in a weekly schedule."""
     if request.user.role != 'Student':
         return render(request, 'courses/access_denied.html')
 
     enrollments = Enrollment.objects.filter(student=request.user).select_related('section').order_by('section__schedule')
-    
-    return render(request, 'courses/student_schedule.html', {'enrollments': enrollments})
+
+    # Define available hours and weekdays
+    hours = [str(i).zfill(2) for i in range(8, 22)]  # 08:00 to 21:00
+    weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+
+    return render(request, 'courses/student_schedule.html', {
+        'enrollments': enrollments,
+        'hours': hours,
+        'weekdays': weekdays
+    })
