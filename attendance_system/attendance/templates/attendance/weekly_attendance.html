@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% load custom_filters %}
+
+{% block content %}
+<h2>Manage Attendance - {{ section.course.name }} ({{ section.section_type }} {{ section.section_number }})</h2>
+
+<p>Select a week to manage attendance for this section:</p>
+
+<ul class="list-group">
+    {% for week in weeks %}
+    <li class="list-group-item d-flex justify-content-between align-items-center">
+        <span>Week {{ week }}</span>
+        <div>
+            <span id="status-{{ section.id }}-{{ week }}">
+                {% with face_recognition_status|dict_key:week as fr_status %}
+                    {% if fr_status and fr_status.enabled %}
+                        ✅ Enabled <small>(Since: {{ fr_status.enabled_at }})</small>
+                    {% else %}
+                        ❌ Disabled
+                    {% endif %}
+                {% endwith %}
+            </span>
+
+            <button 
+                class="btn {% if fr_status and fr_status.enabled %}btn-danger{% else %}btn-primary{% endif %} btn-sm toggle-face-recognition"
+                data-section-id="{{ section.id }}" data-week="{{ week }}">
+                {% if fr_status and fr_status.enabled %}
+                    Disable
+                {% else %}
+                    Enable
+                {% endif %}
+            </button>
+
+            <a href="{% url 'generate_qr_attendance' section.id week %}" class="btn btn-success btn-sm">Generate QR</a>
+            <a href="{% url 'manual_attendance' section.id week %}" class="btn btn-warning btn-sm">Manual Attendance</a>
+        </div>
+    </li>
+    {% endfor %}
+</ul>
+
+<a href="{% url 'lecturer_attendance_dashboard' %}" class="btn btn-secondary mt-3">Back</a>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll(".toggle-face-recognition").forEach(button => {
+        button.addEventListener("click", function () {
+            let sectionId = this.getAttribute("data-section-id");
+            let weekNumber = this.getAttribute("data-week");
+            let button = this;
+            let statusCell = document.getElementById(`status-${sectionId}-${weekNumber}`);
+
+            fetch(`/attendance/toggle-face-weekly/${sectionId}/${weekNumber}/`, {
+                method: "GET"
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "enabled") {
+                    button.classList.remove("btn-primary");
+                    button.classList.add("btn-danger");
+                    button.textContent = "Disable Face Recognition";
+                    statusCell.innerHTML = `✅ Enabled <br><small>Since: ${data.timestamp}</small>`;
+                } else {
+                    button.classList.remove("btn-danger");
+                    button.classList.add("btn-primary");
+                    button.textContent = "Enable Face Recognition";
+                    statusCell.innerHTML = "❌ Disabled";
+                }
+            })
+            .catch(error => console.error("Error:", error));
+        });
+    });
+});
+</script>
+{% endblock %}

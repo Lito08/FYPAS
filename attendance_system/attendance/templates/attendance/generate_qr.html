@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>QR Code - {{ section.course.name }} ({{ section.section_type }} {{ section.section_number }})</h2>
+
+<p>Week: <strong>Week {{ week_number }}</strong></p>
+
+<div class="text-center">
+    <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={{ qr_url }}" alt="QR Code">
+    <p><strong>Scan to mark attendance</strong></p>
+</div>
+
+<a href="{% url 'weekly_attendance_view' section.id %}" class="btn btn-secondary">Back</a>
+{% endblock %}

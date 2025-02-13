@@ -3,19 +3,10 @@
 {% block content %}
 <h2>Manual Attendance - {{ section.course.name }} ({{ section.section_type }} {{ section.section_number }})</h2>
 
-<form method="post">
+<p>Select Class Week: <strong>Week {{ week_number }}</strong></p>
+
+<form method="POST">
     {% csrf_token %}
-
-    <label for="week_number">Select Class Week:</label>
-    <select name="week_number" required>
-        {% for week in "1234567891011121314"|make_list %}
-        <option value="{{ week }}">Week {{ week }}</option>
-        {% endfor %}
-    </select>
-
-    <label for="date">Class Date:</label>
-    <input type="date" name="date" required>
-
     <table class="table">
         <thead>
             <tr>
@@ -26,11 +17,11 @@
         <tbody>
             {% for student in students %}
             <tr>
-                <td>{{ student.student.first_name }} {{ student.student.last_name }}</td>
+                <td>{{ student.first_name }} {{ student.last_name }}</td>
                 <td>
-                    <select name="status_{{ student.student.id }}">
-                        <option value="Present">✅ Present</option>
-                        <option value="Late">🟡 Late</option>
+                    <select name="status_{{ student.id }}" class="form-select">
+                        <option value="Present" selected>✅ Present</option>
+                        <option value="Late">⏳ Late</option>
                         <option value="Absent">❌ Absent</option>
                     </select>
                 </td>
@@ -38,9 +29,7 @@
             {% endfor %}
         </tbody>
     </table>
-
     <button type="submit" class="btn btn-primary">Save Attendance</button>
-    <a href="{% url 'lecturer_attendance_dashboard' %}" class="btn btn-secondary">Back</a>
+    <a href="{% url 'weekly_attendance_view' section.id %}" class="btn btn-secondary">Back</a>
 </form>
-
 {% endblock %}

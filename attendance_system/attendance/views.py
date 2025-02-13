@@ -22,8 +22,8 @@ def take_attendance(request):
         section = get_object_or_404(Section, id=section_id)
 
         # ✅ Ensure the class is ongoing
-        now = datetime.now()
-        if section.schedule.date() != now.date():
+        now_time = now()
+        if section.schedule.date() != now_time.date():
             messages.error(request, "Attendance can only be taken on the scheduled class date.")
             return redirect("take_attendance")
 
@@ -32,7 +32,7 @@ def take_attendance(request):
             student=student,
             section=section,
             date=section.schedule.date(),
-            defaults={"time_checked_in": now.time(), "status": "Present"},
+            defaults={"time_checked_in": now_time.time(), "status": "Present"},
         )
 
         messages.success(request, f"You have successfully checked in for {section}.")
@@ -59,85 +59,100 @@ def lecturer_attendance_dashboard(request):
         return render(request, "access_denied.html")
 
     sections = request.user.section_set.all()
-    face_recognition_status = {}
-
-    for section in sections:
-        fr_status, _ = FaceRecognitionStatus.objects.get_or_create(section=section)
-
-        # ✅ Auto-disable before displaying
-        fr_status.auto_disable()
-
-        # ✅ Store the latest data to ensure the UI updates
-        face_recognition_status[section.id] = {
-            "enabled": fr_status.is_enabled,
-            "enabled_at": fr_status.enabled_at,
-        }
 
     return render(request, "attendance/lecturer_dashboard.html", {
-        "sections": sections,
-        "face_recognition_status": face_recognition_status
+        "sections": sections
     })
 
 @login_required(login_url="/users/login/")
-def toggle_face_recognition(request, section_id):
-    """Enable or disable face recognition attendance for a specific section"""
+def weekly_attendance_view(request, section_id):
+    """Allows lecturers to manage attendance per week for a section"""
     section = get_object_or_404(Section, id=section_id, lecturer=request.user)
-    face_recognition, created = FaceRecognitionStatus.objects.get_or_create(section=section)
 
-    # ✅ Auto-disable if 1-minute has passed
+    weeks = range(1, 15)  # Assuming 14 weeks
+
+    face_recognition_status = {}
+    for week in weeks:
+        fr_status, _ = FaceRecognitionStatus.objects.get_or_create(section=section, week_number=week)
+        fr_status.auto_disable()
+
+        face_recognition_status[week] = {
+            "enabled": fr_status.is_enabled,
+            "enabled_at": fr_status.enabled_at.strftime('%Y-%m-%d %H:%M:%S') if fr_status.enabled_at else None
+        }
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({"face_recognition_status": face_recognition_status}, safe=False)
+
+    return render(request, "attendance/weekly_attendance.html", {
+        "section": section,
+        "weeks": weeks,
+        "face_recognition_status": face_recognition_status,
+    })
+
+@login_required(login_url="/users/login/")
+def toggle_face_recognition_weekly(request, section_id, week_number):
+    """Enable or disable face recognition for a specific section & week"""
+    section = get_object_or_404(Section, id=section_id, lecturer=request.user)
+
+    face_recognition, _ = FaceRecognitionStatus.objects.get_or_create(section=section, week_number=week_number)
+
     face_recognition.auto_disable()
 
     if face_recognition.is_enabled:
-        # Disable face recognition
         face_recognition.is_enabled = False
         face_recognition.enabled_at = None
-        response_data = {"status": "disabled"}
+        status = "disabled"
     else:
-        # Enable face recognition and save timestamp
         face_recognition.is_enabled = True
         face_recognition.enabled_at = now()
-        response_data = {
-            "status": "enabled",
-            "timestamp": face_recognition.enabled_at.strftime("%Y-%m-%d %H:%M:%S"),
-        }
+        status = "enabled"
 
     face_recognition.save()
-    return JsonResponse(response_data)
+
+    return JsonResponse({
+        "status": status,
+        "timestamp": face_recognition.enabled_at.strftime('%Y-%m-%d %H:%M:%S') if face_recognition.enabled_at else None
+    })
 
 @login_required(login_url="/users/login/")
-def generate_qr_attendance(request, section_id):
-    """Generate QR code for attendance"""
+def generate_qr_attendance(request, section_id, week_number):
+    """Generates a QR code for students to check in for a specific section and week."""
     section = get_object_or_404(Section, id=section_id, lecturer=request.user)
 
-    # Logic to generate QR code (to be implemented)
-    messages.success(request, f"QR Code generated for {section}.")
-    return redirect("lecturer_attendance_dashboard")
+    qr_data = f"{section.id}|Week{week_number}|{now().timestamp()}"
+    
+    qr_url = f"https://example.com/attendance/take/?data={qr_data}"
+
+    return render(request, "attendance/generate_qr.html", {
+        "section": section,
+        "week_number": week_number,
+        "qr_url": qr_url
+    })
 
 @login_required(login_url="/users/login/")
-def manual_attendance(request, section_id):
-    """Manually take attendance for a specific class session within a section."""
+def manual_attendance(request, section_id, week_number):
+    """Manually mark attendance for students in a specific section and week."""
     section = get_object_or_404(Section, id=section_id, lecturer=request.user)
-    students = Enrollment.objects.filter(section=section).select_related('student')
+
+    # ✅ Fetch students enrolled in this section
+    students = Enrollment.objects.filter(section=section).select_related("student")
 
     if request.method == "POST":
-        week_number = int(request.POST.get("week_number"))
-        date = request.POST.get("date")
-
-        for student in students:
-            status = request.POST.get(f"status_{student.student.id}")
+        for enrollment in students:
+            student = enrollment.student
+            status = request.POST.get(f"status_{student.id}", "Absent")  # Default to absent
 
             Attendance.objects.update_or_create(
-                student=student.student,
-                section=section,
-                date=date,
-                week_number=week_number,
-                defaults={"status": status, "time_checked_in": datetime.now().time()},
+                student=student, section=section, week_number=week_number,
+                defaults={"status": status, "date": now().date()}
             )
 
-        messages.success(request, f"Attendance saved for {section} (Week {week_number}, {date})")
-        return redirect("lecturer_attendance_dashboard")
+        messages.success(request, f"Attendance updated for Week {week_number} - {section}.")
+        return redirect("weekly_attendance", section_id=section.id)
 
     return render(request, "attendance/manual_attendance.html", {
         "section": section,
-        "students": students,
+        "week_number": week_number,
+        "students": students
     })
