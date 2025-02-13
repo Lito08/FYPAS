@@ -16,11 +16,10 @@ class Course(models.Model):
         return f"{self.code} - {self.name}"
 
 class Section(models.Model):
-    """Course Sections (Lectures/Tutorials/Labs)"""
+    """Course Sections (Lectures/Tutorials)"""
     SECTION_TYPES = [
         ('Lecture', 'Lecture'),
         ('Tutorial', 'Tutorial'),
-        ('Lab', 'Lab')
     ]
 
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="sections")

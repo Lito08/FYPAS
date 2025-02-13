@@ -75,7 +75,7 @@
 <!-- ✅ Sidebar Navigation -->
 <button class="toggle-btn" onclick="toggleSidebar()">☰</button>
 <div class="sidebar" id="sidebar">
-    <h4 class="text-center">Navigation</h4>
+    <h4 class="text-center">UAS</h4>
     <a href="{% url 'dashboard' %}" class="{% if request.path == '/dashboard/' %}active{% endif %}">Dashboard</a>
 
     {% if user.is_authenticated %}
@@ -85,7 +85,7 @@
             <a href="{% url 'manage_sections' %}" class="{% if request.path == '/manage-sections/' %}active{% endif %}">Manage Sections</a>
             <a href="{% url 'manage_enrollments' %}" class="{% if request.path == '/manage-enrollments/' %}active{% endif %}">Manage Enrollments</a>
         {% elif user.role == "Lecturer" %}
-            <a href="{% url 'enable_attendance' %}">Enable Attendance</a>
+            <a href="{% url 'lecturer_attendance_dashboard' %}">Manage Attendance</a>
             <a href="{% url 'attendance_records' %}">View Attendance Records</a>
         {% elif user.role == "Student" %}
             <a href="{% url 'select_course' %}" class="{% if request.path == '/select-course/' %}active{% endif %}">Enrollment</a>

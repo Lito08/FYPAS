@@ -6,23 +6,6 @@ from .models import Attendance
 from datetime import datetime
 
 @login_required(login_url="/users/login/")
-def enable_attendance(request, section_id):
-    """Allows the lecturer to enable attendance for a section."""
-    section = get_object_or_404(Section, id=section_id, lecturer=request.user)
-
-    if request.user.role != "Lecturer":
-        return render(request, "access_denied.html")
-
-    # ✅ Ensure attendance can only be enabled for scheduled classes
-    if section.schedule is None:
-        messages.error(request, "Cannot enable attendance. This section is not scheduled yet.")
-        return redirect("attendance_records")
-
-    # ✅ Enable attendance for the section
-    messages.success(request, f"Attendance enabled for {section}. Students can now check in.")
-    return redirect("attendance_records")
-
-@login_required(login_url="/users/login/")
 def take_attendance(request):
     """Allows students to take attendance for their ongoing class."""
     if request.user.role != "Student":
@@ -65,3 +48,38 @@ def attendance_records(request):
         return render(request, "access_denied.html")
 
     return render(request, "attendance/attendance_records.html", {"records": records})
+
+@login_required(login_url="/users/login/")
+def lecturer_attendance_dashboard(request):
+    """Allows lecturers to select a section to manage attendance"""
+    if request.user.role != "Lecturer":
+        return render(request, "access_denied.html")
+
+    sections = request.user.section_set.all()  # Get all sections assigned to lecturer
+    return render(request, "attendance/lecturer_dashboard.html", {"sections": sections})
+
+@login_required(login_url="/users/login/")
+def enable_face_recognition(request, section_id):
+    """Enable face recognition attendance for a specific section"""
+    section = get_object_or_404(Section, id=section_id, lecturer=request.user)
+
+    # Logic to enable face recognition
+    messages.success(request, f"Face recognition attendance enabled for {section}.")
+    return redirect("lecturer_attendance_dashboard")
+
+@login_required(login_url="/users/login/")
+def generate_qr_attendance(request, section_id):
+    """Generate QR code for attendance"""
+    section = get_object_or_404(Section, id=section_id, lecturer=request.user)
+
+    # Logic to generate QR code (to be implemented)
+    messages.success(request, f"QR Code generated for {section}.")
+    return redirect("lecturer_attendance_dashboard")
+
+@login_required(login_url="/users/login/")
+def manual_attendance(request, section_id):
+    """Manually take attendance for a section"""
+    section = get_object_or_404(Section, id=section_id, lecturer=request.user)
+
+    # Logic to display student list and mark attendance (to be implemented)
+    return render(request, "attendance/manual_attendance.html", {"section": section})

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Manage Attendance</h2>
+
+{% if sections %}
+<table class="table">
+    <thead>
+        <tr>
+            <th>Section</th>
+            <th>Course</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for section in sections %}
+        <tr>
+            <td>{{ section.section_number }}</td>
+            <td>{{ section.course.name }}</td>
+            <td>
+                <a href="{% url 'enable_face_recognition' section.id %}" class="btn btn-primary btn-sm">Enable Face Recognition</a>
+                <a href="{% url 'generate_qr_attendance' section.id %}" class="btn btn-success btn-sm">Generate QR</a>
+                <a href="{% url 'manual_attendance' section.id %}" class="btn btn-warning btn-sm">Manual Attendance</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>You are not assigned to any sections.</p>
+{% endif %}
+{% endblock %}
