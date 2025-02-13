@@ -2,10 +2,9 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from courses.models import Section, Enrollment
+from users.models import User
 from .models import Attendance, FaceRecognitionStatus
-from datetime import datetime
 from django.utils.timezone import now
-from datetime import timedelta
 from django.http import JsonResponse
 
 @login_required(login_url="/users/login/")
@@ -134,25 +133,20 @@ def generate_qr_attendance(request, section_id, week_number):
 def manual_attendance(request, section_id, week_number):
     """Manually mark attendance for students in a specific section and week."""
     section = get_object_or_404(Section, id=section_id, lecturer=request.user)
-
-    # ✅ Fetch students enrolled in this section
-    students = Enrollment.objects.filter(section=section).select_related("student")
+    students = User.objects.filter(enrollment__section=section, role="Student")  # ✅ Get enrolled students
 
     if request.method == "POST":
-        for enrollment in students:
-            student = enrollment.student
-            status = request.POST.get(f"status_{student.id}", "Absent")  # Default to absent
-
+        for student in students:
+            status = request.POST.get(f"status_{student.id}", "Absent")  # Default is absent
             Attendance.objects.update_or_create(
                 student=student, section=section, week_number=week_number,
                 defaults={"status": status, "date": now().date()}
             )
-
         messages.success(request, f"Attendance updated for Week {week_number} - {section}.")
-        return redirect("weekly_attendance", section_id=section.id)
+        return redirect("weekly_attendance_view", section_id=section.id)
 
     return render(request, "attendance/manual_attendance.html", {
         "section": section,
         "week_number": week_number,
-        "students": students
+        "students": students  # ✅ Pass students to the template
     })
