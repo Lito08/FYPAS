@@ -3,7 +3,9 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .models import Course, Section, Enrollment, EnrollmentCart, ClassSession
 from .forms import CourseForm, SectionForm, EnrollmentForm, EnrollmentCartForm, AdminEnrollmentForm
-from datetime import timedelta
+from datetime import timedelta, datetime
+from django.utils.timezone import now
+from django.http import JsonResponse
 
 # 🔹 MANAGE COURSES
 @login_required(login_url='/users/login/')
@@ -141,13 +143,13 @@ def create_section_view(request, course_id=None):
         if form.is_valid():
             section = form.save(commit=False)
             if course:
-                section.course = course  # ✅ Automatically assign the course
+                section.course = course  # ✅ Assign course
             section.save()
 
-            # ✅ Prevent duplicate class session creation
-            existing_sessions = ClassSession.objects.filter(section=section)
-            if not existing_sessions.exists():  # ✅ Only create if sessions don't exist
-                for week in range(1, 15):  # ✅ 14 weeks of classes
+            # ✅ Ensure class sessions are generated correctly
+            existing_sessions = ClassSession.objects.filter(section=section).count()
+            if existing_sessions == 0:
+                for week in range(1, 15):  # ✅ Generate 14 weeks
                     ClassSession.objects.create(
                         section=section,
                         week_number=week,
@@ -155,10 +157,10 @@ def create_section_view(request, course_id=None):
                         start_time=section.class_time
                     )
 
-            messages.success(request, "Section created successfully!")
+            messages.success(request, "Section created and class sessions generated successfully!")
             return redirect('view_course_sections', course_id=course.id)
     else:
-        form = SectionForm(initial={'course': course})  # ✅ Prefill course field if provided
+        form = SectionForm(initial={'course': course})
 
     return render(request, 'courses/create_section.html', {'form': form, 'course': course})
 
@@ -175,9 +177,9 @@ def edit_section_view(request, section_id):
             section = form.save()
 
             # ✅ Ensure class sessions are generated if they don't exist
-            existing_sessions = section.sessions.count()
-            if existing_sessions == 0 and section.start_date and section.class_time:
-                for week in range(1, 15):  # 1 to 14 (Weeks)
+            existing_sessions = ClassSession.objects.filter(section=section).count()
+            if existing_sessions == 0:
+                for week in range(1, 15):  # ✅ Generate 14 weeks if missing
                     ClassSession.objects.create(
                         section=section,
                         week_number=week,
@@ -268,7 +270,7 @@ def unenroll_student_view(request, enrollment_id):
     messages.success(request, "Student unenrolled successfully!")
     return redirect('manage_enrollments')
 
-# 🔹 SELECT COURSES (Step 1)
+# 🔹 SELECT COURSES
 @login_required(login_url='/users/login/')
 def select_course_view(request):
     """Step 1: Student selects courses to enroll in, excluding already enrolled ones."""
@@ -283,7 +285,7 @@ def select_course_view(request):
 
     return render(request, 'courses/select_course.html', {'courses': available_courses})
 
-# 🔹 SELECT SECTIONS (Step 2)
+# 🔹 SELECT SECTIONS
 @login_required(login_url='/users/login/')
 def select_sections_view(request, course_id):
     """Allows students to select lecture and tutorial sections separately and add them to cart."""
@@ -308,19 +310,36 @@ def select_sections_view(request, course_id):
         section_id = request.POST.get('section_id')
         section = get_object_or_404(Section, id=section_id)
 
+        # ✅ Ensure section has a valid schedule
+        if not section.start_date or not section.class_time:
+            messages.error(request, f"⚠️ Cannot select {section.section_type} {section.section_number} as its schedule is not set.")
+            return redirect('select_sections', course_id=course.id)
+
+        # ✅ Convert to full datetime for proper time calculations
+        selected_section_start = datetime.combine(section.start_date, section.class_time)
+        selected_section_end = selected_section_start + timedelta(minutes=section.duration)
+
         # ✅ Prevent schedule clashes with sections already in the cart
-        if cart_item.lecture_section and cart_item.lecture_section.schedule and section.schedule:
+        if cart_item.lecture_section and cart_item.lecture_section.start_date and cart_item.lecture_section.class_time:
+            lecture_start = datetime.combine(cart_item.lecture_section.start_date, cart_item.lecture_section.class_time)
+            lecture_end = lecture_start + timedelta(minutes=cart_item.lecture_section.duration)
+
             if (
-                cart_item.lecture_section.schedule <= section.schedule < cart_item.lecture_section.schedule + timedelta(minutes=cart_item.lecture_section.duration)
+                lecture_start <= selected_section_start < lecture_end or
+                lecture_start < selected_section_end <= lecture_end
             ):
-                messages.error(request, f"Cannot add {section.section_type} {section.section_number} as it conflicts with Lecture {cart_item.lecture_section.section_number}.")
+                messages.error(request, f"⚠️ Cannot add {section.section_type} {section.section_number} as it conflicts with Lecture {cart_item.lecture_section.section_number}.")
                 return redirect('select_sections', course_id=course.id)
 
-        if cart_item.tutorial_section and cart_item.tutorial_section.schedule and section.schedule:
+        if cart_item.tutorial_section and cart_item.tutorial_section.start_date and cart_item.tutorial_section.class_time:
+            tutorial_start = datetime.combine(cart_item.tutorial_section.start_date, cart_item.tutorial_section.class_time)
+            tutorial_end = tutorial_start + timedelta(minutes=cart_item.tutorial_section.duration)
+
             if (
-                cart_item.tutorial_section.schedule <= section.schedule < cart_item.tutorial_section.schedule + timedelta(minutes=cart_item.tutorial_section.duration)
+                tutorial_start <= selected_section_start < tutorial_end or
+                tutorial_start < selected_section_end <= tutorial_end
             ):
-                messages.error(request, f"Cannot add {section.section_type} {section.section_number} as it conflicts with Tutorial {cart_item.tutorial_section.section_number}.")
+                messages.error(request, f"⚠️ Cannot add {section.section_type} {section.section_number} as it conflicts with Tutorial {cart_item.tutorial_section.section_number}.")
                 return redirect('select_sections', course_id=course.id)
 
         # ✅ Add section to cart (Lecture or Tutorial)
@@ -330,7 +349,7 @@ def select_sections_view(request, course_id):
             cart_item.tutorial_section = section  # Ensures only one tutorial section
         cart_item.save()
 
-        messages.success(request, f"{section.section_type} {section.section_number} added to cart successfully!")
+        messages.success(request, f"✅ {section.section_type} {section.section_number} added to cart successfully!")
 
         # ✅ Stay on page until all required selections are made
         if cart_item.lecture_section and (not course.tutorial_required or cart_item.tutorial_section):
@@ -345,7 +364,7 @@ def select_sections_view(request, course_id):
         'cart_item': cart_item
     })
 
-# 🔹 REVIEW CART (Step 3)
+# 🔹 REVIEW CART
 @login_required(login_url='/users/login/')
 def review_cart_view(request):
     """Step 3: Student reviews selected courses before final enrollment."""
@@ -367,7 +386,7 @@ def remove_from_cart_view(request, cart_id):
     messages.success(request, "Course removed from cart!")
     return redirect('review_cart')
 
-# 🔹 FINALIZE ENROLLMENT (Step 4)
+# 🔹 FINALIZE ENROLLMENT
 @login_required(login_url='/users/login/')
 def finalize_enrollment_view(request):
     """Step 4: Finalize enrollment for all selected courses."""
@@ -397,23 +416,48 @@ def finalize_enrollment_view(request):
     messages.success(request, "Enrollment completed successfully!")
     return redirect('student_schedule')
 
-# 🔹 VIEW STUDENT SCHEDULE
 @login_required(login_url='/users/login/')
 def student_schedule_view(request):
-    """Displays the enrolled sections in a weekly schedule."""
-    if request.user.role != 'Student':
-        return render(request, 'courses/access_denied.html')
+    """Displays the student's weekly schedule with AJAX support."""
+    student = request.user
+    enrollments = Enrollment.objects.filter(student=student).select_related('section__course')
 
-    enrollments = Enrollment.objects.filter(student=request.user).select_related('section').order_by('section__schedule')
+    # ✅ Get the selected week date
+    week_date_str = request.GET.get("week_date")
+    if week_date_str:
+        selected_date = datetime.strptime(week_date_str, "%Y-%m-%d").date()
+    else:
+        selected_date = now().date()
 
-    # Define available hours and weekdays
-    hours = [str(i).zfill(2) for i in range(8, 22)]  # 08:00 to 21:00
-    weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+    # ✅ Calculate the start of the selected week (Monday)
+    start_of_week = selected_date - timedelta(days=selected_date.weekday())
 
-    return render(request, 'courses/student_schedule.html', {
-        'enrollments': enrollments,
-        'hours': hours,
-        'weekdays': weekdays
+    # ✅ Retrieve class sessions for the student's enrolled sections
+    weekly_schedule = []
+    for enrollment in enrollments:
+        class_sessions = ClassSession.objects.filter(
+            section=enrollment.section,
+            date__range=[start_of_week, start_of_week + timedelta(days=4)]
+        )
+
+        for session in class_sessions:
+            weekly_schedule.append({
+                "course": enrollment.section.course.name,
+                "type": enrollment.section.section_type,
+                "day": session.date.strftime("%A"),  # Example: "Monday"
+                "hour": session.start_time.hour,  # Get hour of the class
+            })
+
+    # ✅ Debugging: Check if data is being retrieved
+    print("Weekly Schedule Data:", weekly_schedule)
+
+    # ✅ Return JSON for AJAX calls
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse({"schedule": weekly_schedule})
+
+    return render(request, "courses/student_schedule.html", {
+        "enrollments": enrollments,
+        "selected_week": selected_date.strftime("%Y-%m-%d"),
     })
 
 @login_required(login_url='/users/login/')

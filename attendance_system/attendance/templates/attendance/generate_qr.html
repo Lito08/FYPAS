@@ -1,14 +1,12 @@
 {% extends "base.html" %}
-
 {% block content %}
-<h2>QR Code - {{ section.course.name }} ({{ section.section_type }} {{ section.section_number }})</h2>
+<h2>QR Code for Week {{ week_number }} - {{ section.course.name }} ({{ section.section_type }} {{ section.section_number }})</h2>
 
-<p>Week: <strong>Week {{ week_number }}</strong></p>
+<p>Scan this QR Code to check in for attendance.</p>
 
-<div class="text-center">
-    <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={{ qr_url }}" alt="QR Code">
-    <p><strong>Scan to mark attendance</strong></p>
-</div>
+<img src="data:image/png;base64,{{ qr_base64 }}" alt="QR Code" class="img-fluid">
 
-<a href="{% url 'weekly_attendance_view' section.id %}" class="btn btn-secondary">Back</a>
+<p><strong>Scan URL:</strong> <a href="{{ qr_data }}" target="_blank">{{ qr_data }}</a></p>
+
+<a href="{% url 'weekly_attendance_view' section.id %}" class="btn btn-secondary mt-3">Back</a>
 {% endblock %}

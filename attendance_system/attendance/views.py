@@ -1,43 +1,59 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from courses.models import Section, Enrollment
+from courses.models import Section, Enrollment, ClassSession
 from users.models import User
 from .models import Attendance, FaceRecognitionStatus
 from django.utils.timezone import now
+import qrcode
+import io
+import base64
 from django.http import JsonResponse
 
 @login_required(login_url="/users/login/")
 def take_attendance(request):
-    """Allows students to take attendance for their ongoing class."""
+    """Allows students to take attendance for their ongoing class using QR code."""
     if request.user.role != "Student":
         return render(request, "access_denied.html")
 
     student = request.user
-    enrollments = Enrollment.objects.filter(student=student, section__schedule__isnull=False)
+    section_id = request.GET.get("section_id")
+    week_number = request.GET.get("week")
 
-    if request.method == "POST":
-        section_id = request.POST.get("section_id")
-        section = get_object_or_404(Section, id=section_id)
-
-        # ✅ Ensure the class is ongoing
-        now_time = now()
-        if section.schedule.date() != now_time.date():
-            messages.error(request, "Attendance can only be taken on the scheduled class date.")
-            return redirect("take_attendance")
-
-        # ✅ Record attendance
-        Attendance.objects.update_or_create(
-            student=student,
-            section=section,
-            date=section.schedule.date(),
-            defaults={"time_checked_in": now_time.time(), "status": "Present"},
-        )
-
-        messages.success(request, f"You have successfully checked in for {section}.")
+    # ✅ Validate input
+    if not section_id or not week_number:
+        messages.error(request, "Invalid QR Code data.")
         return redirect("student_schedule")
 
-    return render(request, "attendance/take_attendance.html", {"enrollments": enrollments})
+    # ✅ Ensure section exists
+    section = get_object_or_404(Section, id=section_id)
+    
+    # ✅ Ensure student is enrolled
+    if not Enrollment.objects.filter(student=student, section=section).exists():
+        messages.error(request, "You are not enrolled in this section.")
+        return redirect("student_schedule")
+
+    # ✅ Check if `ClassSession` exists
+    class_session = ClassSession.objects.filter(section=section, week_number=week_number).first()
+    if not class_session:
+        messages.error(request, f"No scheduled class for {section} in Week {week_number}.")
+        return redirect("student_schedule")
+
+    # ✅ Record attendance
+    attendance, created = Attendance.objects.get_or_create(
+        student=student,
+        section=section,
+        date=class_session.date,  # Use correct session date
+        week_number=week_number,
+        defaults={"time_checked_in": now().time(), "status": "Present"},
+    )
+
+    if not created:
+        messages.info(request, f"Attendance already recorded for {section} - Week {week_number}.")
+    else:
+        messages.success(request, f"You have successfully checked in for {section} - Week {week_number}.")
+
+    return redirect("student_schedule")
 
 @login_required(login_url="/users/login/")
 def attendance_records(request):
@@ -119,14 +135,23 @@ def generate_qr_attendance(request, section_id, week_number):
     """Generates a QR code for students to check in for a specific section and week."""
     section = get_object_or_404(Section, id=section_id, lecturer=request.user)
 
-    qr_data = f"{section.id}|Week{week_number}|{now().timestamp()}"
-    
-    qr_url = f"https://example.com/attendance/take/?data={qr_data}"
+    # ✅ Get the base URL of your Django app
+    base_url = request.build_absolute_uri('/')[:-1]  # Removes the trailing slash
+
+    # ✅ Generate the QR Code Data (Actual Check-in URL)
+    qr_data = f"{base_url}/attendance/take/?section_id={section.id}&week={week_number}&timestamp={now().timestamp()}"
+
+    # ✅ Create QR Code
+    qr = qrcode.make(qr_data)
+    buffer = io.BytesIO()
+    qr.save(buffer, format="PNG")
+    qr_base64 = base64.b64encode(buffer.getvalue()).decode()
 
     return render(request, "attendance/generate_qr.html", {
         "section": section,
         "week_number": week_number,
-        "qr_url": qr_url
+        "qr_base64": qr_base64,  # ✅ Pass QR Code as Base64 to the template
+        "qr_data": qr_data,  # ✅ Pass the URL for debugging
     })
 
 @login_required(login_url="/users/login/")
