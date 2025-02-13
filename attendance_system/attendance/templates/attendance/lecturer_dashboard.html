@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-
 {% block content %}
 <h2>Manage Attendance</h2>
 
@@ -8,6 +7,7 @@
     <thead>
         <tr>
             <th>Section</th>
+            <th>Type</th>
             <th>Course</th>
             <th>Status</th>
             <th>Actions</th>
@@ -17,8 +17,15 @@
         {% for section in sections %}
         <tr>
             <td>{{ section.section_number }}</td>
-            <td>{{ section.course.name }}</td>
             <td>
+                {% if section.section_type == "Lecture" %}
+                    <span class="badge bg-primary">Lecture</span>
+                {% else %}
+                    <span class="badge bg-secondary">Tutorial</span>
+                {% endif %}
+            </td>
+            <td>{{ section.course.name }}</td>
+            <td id="status-{{ section.id }}">
                 {% if section.face_recognition_enabled %}
                     ✅ Enabled <br>
                     <small>Since: {{ section.face_recognition_enabled_at|date:"Y-m-d H:i" }}</small>
@@ -27,17 +34,22 @@
                 {% endif %}
             </td>
             <td>
-                <!-- Toggle Face Recognition -->
-                <a href="{% url 'toggle_face_recognition' section.id %}" 
-                   class="btn {% if section.face_recognition_enabled %}btn-danger{% else %}btn-primary{% endif %} btn-sm">
+                <!-- ✅ Toggle Face Recognition -->
+                <button 
+                    class="btn {% if section.face_recognition_enabled %}btn-danger{% else %}btn-primary{% endif %} btn-sm toggle-face-recognition" 
+                    data-section-id="{{ section.id }}">
                     {% if section.face_recognition_enabled %}Disable{% else %}Enable{% endif %} Face Recognition
+                </button>
+
+                <!-- ✅ Generate QR Code -->
+                <a href="{% url 'generate_qr_attendance' section.id %}" class="btn btn-success btn-sm">
+                    Generate QR
                 </a>
 
-                <!-- QR Code Generation -->
-                <a href="{% url 'generate_qr_attendance' section.id %}" class="btn btn-success btn-sm">Generate QR</a>
-
-                <!-- Manual Attendance -->
-                <a href="{% url 'manual_attendance' section.id %}" class="btn btn-warning btn-sm">Manual Attendance</a>
+                <!-- ✅ Manual Attendance -->
+                <a href="{% url 'manual_attendance' section.id %}" class="btn btn-warning btn-sm">
+                    Manual Attendance
+                </a>
             </td>
         </tr>
         {% endfor %}
@@ -46,4 +58,36 @@
 {% else %}
 <p>You are not assigned to any sections.</p>
 {% endif %}
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll(".toggle-face-recognition").forEach(button => {
+        button.addEventListener("click", function () {
+            let sectionId = this.getAttribute("data-section-id");
+            let button = this;
+            let statusCell = document.getElementById(`status-${sectionId}`);
+
+            fetch(`/attendance/toggle-face/${sectionId}/`, {
+                method: "GET"
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "enabled") {
+                    button.classList.remove("btn-primary");
+                    button.classList.add("btn-danger");
+                    button.textContent = "Disable Face Recognition";
+                    statusCell.innerHTML = `✅ Enabled <br><small>Since: ${data.timestamp}</small>`;
+                } else {
+                    button.classList.remove("btn-danger");
+                    button.classList.add("btn-primary");
+                    button.textContent = "Enable Face Recognition";
+                    statusCell.innerHTML = "❌ Disabled";
+                }
+            })
+            .catch(error => console.error("Error:", error));
+        });
+    });
+});
+</script>
+
 {% endblock %}
