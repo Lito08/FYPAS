@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from courses.models import Section, Enrollment
-from .models import Attendance
+from .models import Attendance, FaceRecognitionStatus
 from datetime import datetime
 
 @login_required(login_url="/users/login/")
@@ -55,16 +55,36 @@ def lecturer_attendance_dashboard(request):
     if request.user.role != "Lecturer":
         return render(request, "access_denied.html")
 
-    sections = request.user.section_set.all()  # Get all sections assigned to lecturer
+    sections = request.user.section_set.all()
+
+    # Attach Face Recognition status to sections
+    for section in sections:
+        face_recognition_status = FaceRecognitionStatus.objects.filter(section=section).first()
+        section.face_recognition_enabled = face_recognition_status.is_enabled if face_recognition_status else False
+        section.face_recognition_enabled_at = face_recognition_status.enabled_at if face_recognition_status else None
+
     return render(request, "attendance/lecturer_dashboard.html", {"sections": sections})
 
+
 @login_required(login_url="/users/login/")
-def enable_face_recognition(request, section_id):
-    """Enable face recognition attendance for a specific section"""
+def toggle_face_recognition(request, section_id):
+    """Enable or disable face recognition attendance for a specific section"""
     section = get_object_or_404(Section, id=section_id, lecturer=request.user)
 
-    # Logic to enable face recognition
-    messages.success(request, f"Face recognition attendance enabled for {section}.")
+    face_recognition, created = FaceRecognitionStatus.objects.get_or_create(section=section)
+
+    if face_recognition.is_enabled:
+        # Disable face recognition
+        face_recognition.is_enabled = False
+        face_recognition.enabled_at = None
+        messages.success(request, f"Face recognition attendance **disabled** for {section}.")
+    else:
+        # Enable face recognition and save timestamp
+        face_recognition.is_enabled = True
+        face_recognition.enabled_at = datetime.now()
+        messages.success(request, f"Face recognition attendance **enabled** for {section} at {face_recognition.enabled_at.strftime('%H:%M:%S')}.")
+
+    face_recognition.save()
     return redirect("lecturer_attendance_dashboard")
 
 @login_required(login_url="/users/login/")

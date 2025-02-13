@@ -9,6 +9,7 @@
         <tr>
             <th>Section</th>
             <th>Course</th>
+            <th>Status</th>
             <th>Actions</th>
         </tr>
     </thead>
@@ -18,8 +19,24 @@
             <td>{{ section.section_number }}</td>
             <td>{{ section.course.name }}</td>
             <td>
-                <a href="{% url 'enable_face_recognition' section.id %}" class="btn btn-primary btn-sm">Enable Face Recognition</a>
+                {% if section.face_recognition_enabled %}
+                    ✅ Enabled <br>
+                    <small>Since: {{ section.face_recognition_enabled_at|date:"Y-m-d H:i" }}</small>
+                {% else %}
+                    ❌ Disabled
+                {% endif %}
+            </td>
+            <td>
+                <!-- Toggle Face Recognition -->
+                <a href="{% url 'toggle_face_recognition' section.id %}" 
+                   class="btn {% if section.face_recognition_enabled %}btn-danger{% else %}btn-primary{% endif %} btn-sm">
+                    {% if section.face_recognition_enabled %}Disable{% else %}Enable{% endif %} Face Recognition
+                </a>
+
+                <!-- QR Code Generation -->
                 <a href="{% url 'generate_qr_attendance' section.id %}" class="btn btn-success btn-sm">Generate QR</a>
+
+                <!-- Manual Attendance -->
                 <a href="{% url 'manual_attendance' section.id %}" class="btn btn-warning btn-sm">Manual Attendance</a>
             </td>
         </tr>

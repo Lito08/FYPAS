@@ -18,3 +18,13 @@ class Attendance(models.Model):
 
     def __str__(self):
         return f"{self.student.first_name} - {self.section} ({self.status})"
+
+
+class FaceRecognitionStatus(models.Model):
+    """Tracks the Face Recognition status for each section"""
+    section = models.OneToOneField(Section, on_delete=models.CASCADE)
+    is_enabled = models.BooleanField(default=False)
+    enabled_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Face Recognition {'Enabled' if self.is_enabled else 'Disabled'} for {self.section}"
