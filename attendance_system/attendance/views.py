@@ -105,25 +105,29 @@ def generate_qr_attendance(request, section_id):
 
 @login_required(login_url="/users/login/")
 def manual_attendance(request, section_id):
-    """Allows lecturers to manually mark attendance for students in a section."""
+    """Manually take attendance for a specific class session within a section."""
     section = get_object_or_404(Section, id=section_id, lecturer=request.user)
-    enrolled_students = Enrollment.objects.filter(section=section).select_related('student')
+    students = Enrollment.objects.filter(section=section).select_related('student')
 
     if request.method == "POST":
-        for enrollment in enrolled_students:
-            student_id = enrollment.student.id
-            status = request.POST.get(f"attendance_{student_id}")  # Get attendance status
+        week_number = int(request.POST.get("week_number"))
+        date = request.POST.get("date")
 
-            if status in ["Present", "Late", "Absent"]:  # ✅ Validate status
-                Attendance.objects.update_or_create(
-                    student=enrollment.student,
-                    section=section,
-                    date=section.schedule.date(),
-                    defaults={"status": status}
-                )
+        for student in students:
+            status = request.POST.get(f"status_{student.student.id}")
 
-        messages.success(request, f"Attendance updated for {section}.")
+            Attendance.objects.update_or_create(
+                student=student.student,
+                section=section,
+                date=date,
+                week_number=week_number,
+                defaults={"status": status, "time_checked_in": datetime.now().time()},
+            )
+
+        messages.success(request, f"Attendance saved for {section} (Week {week_number}, {date})")
         return redirect("lecturer_attendance_dashboard")
 
-    return render(request, "attendance/manual_attendance.html", {"section": section, "enrolled_students": enrolled_students})
-
+    return render(request, "attendance/manual_attendance.html", {
+        "section": section,
+        "students": students,
+    })

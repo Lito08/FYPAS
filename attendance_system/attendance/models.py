@@ -5,7 +5,8 @@ from django.utils.timezone import now
 from datetime import timedelta
 
 class Attendance(models.Model):
-    """Tracks student attendance for a section"""
+    """Tracks student attendance for a specific class session within a section."""
+    
     STATUS_CHOICES = [
         ('Present', 'Present'),
         ('Late', 'Late'),
@@ -14,13 +15,13 @@ class Attendance(models.Model):
 
     student = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={'role': 'Student'})
     section = models.ForeignKey(Section, on_delete=models.CASCADE)
-    date = models.DateField(auto_now_add=True)
+    date = models.DateField()  # ✅ Now stores the specific class session date
+    week_number = models.IntegerField(null=True, blank=True)  # ✅ Tracks week number of the class
     time_checked_in = models.TimeField(null=True, blank=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='Absent')
 
     def __str__(self):
-        return f"{self.student.first_name} - {self.section} ({self.status})"
-
+        return f"{self.student.first_name} - {self.section} (Week {self.week_number}, {self.date})"
 
 class FaceRecognitionStatus(models.Model):
     """Tracks the Face Recognition status for each section"""
