@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (
-    take_attendance, enable_attendance, attendance_records,
+    take_attendance, attendance_records,
     lecturer_attendance_dashboard, enable_face_recognition, generate_qr_attendance, manual_attendance
 )
 
