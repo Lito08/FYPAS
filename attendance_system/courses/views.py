@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Course, Section, Enrollment, EnrollmentCart
+from .models import Course, Section, Enrollment, EnrollmentCart, ClassSession
 from .forms import CourseForm, SectionForm, EnrollmentForm, EnrollmentCartForm, AdminEnrollmentForm
 from datetime import timedelta
 
@@ -117,7 +117,14 @@ def manage_sections_view(request):
         return render(request, 'access_denied.html')
 
     sections = Section.objects.all()
-    return render(request, 'courses/manage_sections.html', {'sections': sections})
+
+    # ✅ Find sections missing class sessions
+    sections_missing_classes = [s for s in sections if s.sessions.count() == 0]
+
+    return render(request, 'courses/manage_sections.html', {
+        'sections': sections,
+        'sections_missing_classes': sections_missing_classes
+    })
 
 @login_required(login_url='/users/login/')
 def create_section_view(request, course_id=None):
@@ -136,6 +143,18 @@ def create_section_view(request, course_id=None):
             if course:
                 section.course = course  # ✅ Automatically assign the course
             section.save()
+
+            # ✅ Prevent duplicate class session creation
+            existing_sessions = ClassSession.objects.filter(section=section)
+            if not existing_sessions.exists():  # ✅ Only create if sessions don't exist
+                for week in range(1, 15):  # ✅ 14 weeks of classes
+                    ClassSession.objects.create(
+                        section=section,
+                        week_number=week,
+                        date=section.start_date + timedelta(weeks=week - 1),
+                        start_time=section.class_time
+                    )
+
             messages.success(request, "Section created successfully!")
             return redirect('view_course_sections', course_id=course.id)
     else:
@@ -153,9 +172,25 @@ def edit_section_view(request, section_id):
     if request.method == 'POST':
         form = SectionForm(request.POST, instance=section)
         if form.is_valid():
-            form.save()
-            messages.success(request, "Section updated successfully!")
+            section = form.save()
+
+            # ✅ Ensure class sessions are generated if they don't exist
+            existing_sessions = section.sessions.count()
+            if existing_sessions == 0 and section.start_date and section.class_time:
+                for week in range(1, 15):  # 1 to 14 (Weeks)
+                    ClassSession.objects.create(
+                        section=section,
+                        week_number=week,
+                        date=section.start_date + timedelta(weeks=week - 1),
+                        start_time=section.class_time
+                    )
+                messages.success(request, "Section updated and missing class sessions were generated!")
+
+            else:
+                messages.success(request, "Section updated successfully!")
+
             return redirect('manage_sections')
+
     else:
         form = SectionForm(instance=section)
 

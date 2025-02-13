@@ -6,6 +6,19 @@
 <a href="{% url 'create_section' %}" class="btn btn-success">Add New Section</a>
 <a href="{% url 'manage_courses' %}" class="btn btn-primary">Manage Courses</a>
 
+<!-- ✅ Warning if sections have missing class sessions -->
+{% if sections_missing_classes %}
+<div class="alert alert-warning mt-3">
+    <strong>⚠ Warning:</strong> The following sections do not have scheduled class sessions:
+    <ul>
+        {% for section in sections_missing_classes %}
+        <li>{{ section.course.code }} - {{ section.section_type }} {{ section.section_number }}</li>
+        {% endfor %}
+    </ul>
+    Please edit these sections and set a start date to generate class sessions.
+</div>
+{% endif %}
+
 <table class="table mt-3">
     <thead>
         <tr>
@@ -24,8 +37,20 @@
             <td>{{ section.course.code }}</td>
             <td>{{ section.section_type }}</td>
             <td>{{ section.section_number }}</td>
-            <td>{{ section.lecturer.first_name }} {{ section.lecturer.last_name }}</td>
-            <td>{{ section.schedule|default:"Not Set" }}</td>
+            <td>
+                {% if section.lecturer %}
+                    {{ section.lecturer.first_name }} {{ section.lecturer.last_name }}
+                {% else %}
+                    <span class="text-danger">Not Assigned</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if section.start_date and section.class_time %}
+                    {{ section.start_date|date:"d M Y" }} at {{ section.class_time|time:"H:i A" }}
+                {% else %}
+                    <span class="text-danger">Not Set</span>
+                {% endif %}
+            </td>
             <td>{{ section.duration }} minutes</td>
             <td>
                 <a href="{% url 'edit_section' section.id %}" class="btn btn-warning btn-sm">Edit</a>
@@ -35,4 +60,5 @@
         {% endfor %}
     </tbody>
 </table>
+
 {% endblock %}
