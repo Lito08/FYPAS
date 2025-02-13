@@ -4,6 +4,8 @@ from django.contrib import messages
 from courses.models import Section, Enrollment
 from .models import Attendance, FaceRecognitionStatus
 from datetime import datetime
+from django.utils.timezone import now
+from datetime import timedelta
 
 @login_required(login_url="/users/login/")
 def take_attendance(request):
@@ -57,14 +59,16 @@ def lecturer_attendance_dashboard(request):
 
     sections = request.user.section_set.all()
 
-    # Attach Face Recognition status to sections
     for section in sections:
         face_recognition_status = FaceRecognitionStatus.objects.filter(section=section).first()
+
+        if face_recognition_status:
+            face_recognition_status.auto_disable()  # ✅ Auto-disable before rendering
+
         section.face_recognition_enabled = face_recognition_status.is_enabled if face_recognition_status else False
         section.face_recognition_enabled_at = face_recognition_status.enabled_at if face_recognition_status else None
 
     return render(request, "attendance/lecturer_dashboard.html", {"sections": sections})
-
 
 @login_required(login_url="/users/login/")
 def toggle_face_recognition(request, section_id):
@@ -72,6 +76,9 @@ def toggle_face_recognition(request, section_id):
     section = get_object_or_404(Section, id=section_id, lecturer=request.user)
 
     face_recognition, created = FaceRecognitionStatus.objects.get_or_create(section=section)
+
+    # ✅ Auto-disable if 1-minute has passed
+    face_recognition.auto_disable()
 
     if face_recognition.is_enabled:
         # Disable face recognition
@@ -81,8 +88,8 @@ def toggle_face_recognition(request, section_id):
     else:
         # Enable face recognition and save timestamp
         face_recognition.is_enabled = True
-        face_recognition.enabled_at = datetime.now()
-        messages.success(request, f"Face recognition attendance **enabled** for {section} at {face_recognition.enabled_at.strftime('%H:%M:%S')}.")
+        face_recognition.enabled_at = now()
+        messages.success(request, f"Face recognition attendance **enabled** for {section} at {face_recognition.enabled_at.strftime('%H:%M:%S')}. Auto-disable in 1 minute.")
 
     face_recognition.save()
     return redirect("lecturer_attendance_dashboard")
@@ -98,8 +105,25 @@ def generate_qr_attendance(request, section_id):
 
 @login_required(login_url="/users/login/")
 def manual_attendance(request, section_id):
-    """Manually take attendance for a section"""
+    """Allows lecturers to manually mark attendance for students in a section."""
     section = get_object_or_404(Section, id=section_id, lecturer=request.user)
+    enrolled_students = Enrollment.objects.filter(section=section).select_related('student')
 
-    # Logic to display student list and mark attendance (to be implemented)
-    return render(request, "attendance/manual_attendance.html", {"section": section})
+    if request.method == "POST":
+        for enrollment in enrolled_students:
+            student_id = enrollment.student.id
+            status = request.POST.get(f"attendance_{student_id}")  # Get attendance status
+
+            if status in ["Present", "Late", "Absent"]:  # ✅ Validate status
+                Attendance.objects.update_or_create(
+                    student=enrollment.student,
+                    section=section,
+                    date=section.schedule.date(),
+                    defaults={"status": status}
+                )
+
+        messages.success(request, f"Attendance updated for {section}.")
+        return redirect("lecturer_attendance_dashboard")
+
+    return render(request, "attendance/manual_attendance.html", {"section": section, "enrolled_students": enrolled_students})
+

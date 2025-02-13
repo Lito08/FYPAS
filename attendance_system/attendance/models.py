@@ -1,6 +1,8 @@
 from django.db import models
 from users.models import User
 from courses.models import Section
+from django.utils.timezone import now
+from datetime import timedelta
 
 class Attendance(models.Model):
     """Tracks student attendance for a section"""
@@ -25,6 +27,14 @@ class FaceRecognitionStatus(models.Model):
     section = models.OneToOneField(Section, on_delete=models.CASCADE)
     is_enabled = models.BooleanField(default=False)
     enabled_at = models.DateTimeField(null=True, blank=True)
+
+    def auto_disable(self):
+        """Automatically disable Face Recognition if more than 1 minute has passed"""
+        if self.is_enabled and self.enabled_at:
+            if now() - self.enabled_at > timedelta(minutes=1):  # ✅ 1-Minute Timeout
+                self.is_enabled = False
+                self.enabled_at = None
+                self.save()
 
     def __str__(self):
         return f"Face Recognition {'Enabled' if self.is_enabled else 'Disabled'} for {self.section}"
