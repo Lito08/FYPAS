@@ -1,6 +1,7 @@
 from django import forms
 from .models import Course, Section, Enrollment, EnrollmentCart
 from datetime import timedelta
+from users.models import User
 
 class CourseForm(forms.ModelForm):
     class Meta:
@@ -134,4 +135,17 @@ class EnrollmentCartForm(forms.ModelForm):
             raise forms.ValidationError(f"Tutorial section {tutorial_section.section_number} is full. Please select another.")
 
         return cleaned_data
+
+class AdminEnrollmentForm(forms.ModelForm):
+    """Form for Admins/Superadmins to enroll students manually without schedule restrictions."""
+    
+    student = forms.ModelChoiceField(
+        queryset=User.objects.filter(role='Student'),  # ✅ Fetch only Students
+        required=True,
+        label="Select Student"
+    )
+
+    class Meta:
+        model = Enrollment
+        fields = ['student', 'section']
 

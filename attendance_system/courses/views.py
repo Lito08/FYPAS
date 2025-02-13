@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .models import Course, Section, Enrollment, EnrollmentCart
-from .forms import CourseForm, SectionForm, EnrollmentForm, EnrollmentCartForm
+from .forms import CourseForm, SectionForm, EnrollmentForm, EnrollmentCartForm, AdminEnrollmentForm
 from datetime import timedelta
 
 # 🔹 MANAGE COURSES
@@ -180,21 +180,21 @@ def admin_enroll_student_view(request):
         return render(request, 'courses/access_denied.html')
 
     if request.method == 'POST':
-        form = EnrollmentForm(request.POST)
+        form = AdminEnrollmentForm(request.POST)
         if form.is_valid():
             enrollment = form.save(commit=False)
 
             # ✅ Check if section is full
             enrolled_students = Enrollment.objects.filter(section=enrollment.section).count()
             if enrolled_students >= enrollment.section.max_students:
-                messages.error(request, f"The section {enrollment.section.section_type} {enrollment.section.section_number} is full. Please select another.")
+                messages.error(request, f"The section {enrollment.section.section_type} {enrollment.section.section_number} is full.")
                 return render(request, 'courses/admin_enroll_student.html', {'form': form})
 
             enrollment.save()
             messages.success(request, "Student enrolled successfully!")
             return redirect('manage_enrollments')
     else:
-        form = EnrollmentForm()
+        form = AdminEnrollmentForm()
 
     return render(request, 'courses/admin_enroll_student.html', {'form': form})
 
