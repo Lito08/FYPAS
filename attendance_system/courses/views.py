@@ -20,6 +20,7 @@ def manage_courses_view(request):
 
 @login_required(login_url='/users/login/')
 def create_course_view(request):
+    """Allows Admins to create a course and auto-generate required sections."""
     if request.user.role not in ['Superadmin', 'Admin']:
         return render(request, 'access_denied.html')
 
@@ -28,25 +29,32 @@ def create_course_view(request):
         if form.is_valid():
             course = form.save()
 
-            # ✅ Auto-create Lecture Section
+            # ✅ Auto-create Lecture & Tutorial Sections (if required)
+            sections_to_create = []
             if course.lecture_required:
-                Section.objects.create(
+                sections_to_create.append(('Lecture', 1))
+            if course.tutorial_required:
+                sections_to_create.append(('Tutorial', 1))
+
+            for section_type, section_number in sections_to_create:
+                section = Section.objects.create(
                     course=course,
-                    section_type='Lecture',
-                    section_number=1,  # Default section number
-                    schedule=None,  # Can be set later
-                    duration=60  # Default 1 hour
+                    section_type=section_type,
+                    section_number=section_number,
+                    start_date=None,  # Start date will be assigned later
+                    class_time=None,  # Class time will be assigned later
+                    duration=60,  # Default 1 hour
                 )
 
-            # ✅ Auto-create Tutorial Section
-            if course.tutorial_required:
-                Section.objects.create(
-                    course=course,
-                    section_type='Tutorial',
-                    section_number=1,  # Default section number
-                    schedule=None,  # Can be set later
-                    duration=60  # Default 1 hour
-                )
+                # ✅ Generate 14 weeks of class sessions only when start_date & class_time are set
+                if section.start_date and section.class_time:
+                    for week in range(1, 15):
+                        ClassSession.objects.create(
+                            section=section,
+                            week_number=week,
+                            date=section.start_date + timedelta(weeks=week - 1),
+                            start_time=section.class_time
+                        )
 
             messages.success(request, "Course and required sections created successfully!")
             return redirect('manage_courses')
@@ -57,6 +65,7 @@ def create_course_view(request):
 
 @login_required(login_url='/users/login/')
 def edit_course_view(request, course_id):
+    """Allows Admins to edit a course and auto-handle related sections."""
     course = get_object_or_404(Course, id=course_id)
 
     if request.user.role not in ['Superadmin', 'Admin']:
@@ -67,25 +76,41 @@ def edit_course_view(request, course_id):
         if form.is_valid():
             course = form.save()
 
-            # ✅ Handle Lecture Section Creation/Deletion
+            # ✅ Handle Lecture Section
             if course.lecture_required:
-                Section.objects.get_or_create(
+                lecture_section, created = Section.objects.get_or_create(
                     course=course,
                     section_type='Lecture',
-                    section_number=1,  # Default section number
-                    defaults={'schedule': None, 'duration': 60}
+                    section_number=1,
+                    defaults={'start_date': None, 'class_time': None, 'duration': 60}
                 )
+                if created and lecture_section.start_date and lecture_section.class_time:
+                    for week in range(1, 15):
+                        ClassSession.objects.create(
+                            section=lecture_section,
+                            week_number=week,
+                            date=lecture_section.start_date + timedelta(weeks=week - 1),
+                            start_time=lecture_section.class_time
+                        )
             else:
                 Section.objects.filter(course=course, section_type='Lecture').delete()
 
-            # ✅ Handle Tutorial Section Creation/Deletion
+            # ✅ Handle Tutorial Section
             if course.tutorial_required:
-                Section.objects.get_or_create(
+                tutorial_section, created = Section.objects.get_or_create(
                     course=course,
                     section_type='Tutorial',
-                    section_number=1,  # Default section number
-                    defaults={'schedule': None, 'duration': 60}
+                    section_number=1,
+                    defaults={'start_date': None, 'class_time': None, 'duration': 60}
                 )
+                if created and tutorial_section.start_date and tutorial_section.class_time:
+                    for week in range(1, 15):
+                        ClassSession.objects.create(
+                            section=tutorial_section,
+                            week_number=week,
+                            date=tutorial_section.start_date + timedelta(weeks=week - 1),
+                            start_time=tutorial_section.class_time
+                        )
             else:
                 Section.objects.filter(course=course, section_type='Tutorial').delete()
 
@@ -470,7 +495,6 @@ def student_schedule_view(request):
         "enrollments": enrollments,
         "selected_week": start_of_week.strftime("%Y-%m-%d"),
     })
-
 
 @login_required(login_url='/users/login/')
 def my_courses_view(request):
