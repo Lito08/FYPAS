@@ -11,7 +11,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate
 from django.contrib import messages
 from courses.models import Section, Enrollment, ClassSession
-from users.models import User
+from users.models import User, FaceEncoding
 from .models import Attendance, FaceRecognitionStatus
 from django.utils.timezone import now
 from django.http import JsonResponse
