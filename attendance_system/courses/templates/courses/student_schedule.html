@@ -52,12 +52,16 @@
     <script>
         document.addEventListener("DOMContentLoaded", function () {
             let currentDate = new Date();  // ✅ Get current date
+            let isFetching = false;  // ✅ Prevent multiple fetch calls
             const currentWeekElement = document.getElementById("current-week");
             const prevWeekBtn = document.getElementById("prev-week");
             const nextWeekBtn = document.getElementById("next-week");
             const scheduleTable = document.getElementById("schedule-table");
         
             function updateWeekDisplay() {
+                if (isFetching) return;  // ✅ Prevent redundant fetch calls
+                isFetching = true;
+        
                 let startOfWeek = new Date(currentDate);
                 startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay() + 1); // Set to Monday
                 let endOfWeek = new Date(startOfWeek);
@@ -80,13 +84,29 @@
             });
         
             function fetchSchedule(date) {
-                fetch(`/courses/student-schedule/?week_date=${date}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log("Fetched Schedule:", data);  // ✅ Debug Output
+                console.log("Fetching schedule for:", date);
+                fetch(`/courses/student-schedule/?week_date=${date}`, {
+                    headers: { "X-Requested-With": "XMLHttpRequest" }, // ✅ Ensures Django returns JSON
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log("Fetched Schedule:", data);
+                    if (data.schedule) {
                         updateScheduleTable(data.schedule);
-                    })
-                    .catch(error => console.error("Error fetching schedule:", error));
+                    } else {
+                        console.warn("No schedule data found for this week.");
+                    }
+                    isFetching = false;
+                })
+                .catch(error => {
+                    console.error("Error fetching schedule:", error);
+                    isFetching = false;
+                });
             }
         
             function updateScheduleTable(schedule) {

@@ -1,11 +1,13 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse
 from django.contrib import messages
 from .models import Course, Section, Enrollment, EnrollmentCart, ClassSession
 from .forms import CourseForm, SectionForm, EnrollmentForm, EnrollmentCartForm, AdminEnrollmentForm
 from datetime import timedelta, datetime
 from django.utils.timezone import now
 from django.http import JsonResponse
+from django.db.models import Min
 
 # 🔹 MANAGE COURSES
 @login_required(login_url='/users/login/')
@@ -422,15 +424,23 @@ def student_schedule_view(request):
     student = request.user
     enrollments = Enrollment.objects.filter(student=student).select_related('section__course')
 
-    # ✅ Get the selected week date
+    # ✅ Get the selected week date from the request
     week_date_str = request.GET.get("week_date")
     if week_date_str:
         selected_date = datetime.strptime(week_date_str, "%Y-%m-%d").date()
     else:
-        selected_date = now().date()
+        selected_date = now().date()  # Default to today's date
 
-    # ✅ Calculate the start of the selected week (Monday)
-    start_of_week = selected_date - timedelta(days=selected_date.weekday())
+    # ✅ Find the earliest start date among the student's enrolled courses
+    earliest_start_date = enrollments.aggregate(Min("section__start_date"))["section__start_date__min"]
+    
+    if earliest_start_date:
+        # ✅ Adjust the selected week based on the actual start date
+        week_offset = (selected_date - earliest_start_date).days // 7
+        start_of_week = earliest_start_date + timedelta(weeks=week_offset)
+    else:
+        # If no courses have a start date, default to the current week
+        start_of_week = selected_date - timedelta(days=selected_date.weekday())
 
     # ✅ Retrieve class sessions for the student's enrolled sections
     weekly_schedule = []
@@ -444,21 +454,23 @@ def student_schedule_view(request):
             weekly_schedule.append({
                 "course": enrollment.section.course.name,
                 "type": enrollment.section.section_type,
-                "day": session.date.strftime("%A"),  # Example: "Monday"
-                "hour": session.start_time.hour,  # Get hour of the class
+                "day": session.date.strftime("%A"),
+                "hour": session.start_time.hour,
             })
 
-    # ✅ Debugging: Check if data is being retrieved
+    # ✅ Debugging Output
+    print(f"Adjusted Start of Week: {start_of_week} | Selected Date: {selected_date}")
     print("Weekly Schedule Data:", weekly_schedule)
 
-    # ✅ Return JSON for AJAX calls
+    # ✅ Return JSON if it's an AJAX request
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-        return JsonResponse({"schedule": weekly_schedule})
+        return JsonResponse({"schedule": weekly_schedule, "start_of_week": start_of_week.strftime("%Y-%m-%d")})
 
     return render(request, "courses/student_schedule.html", {
         "enrollments": enrollments,
-        "selected_week": selected_date.strftime("%Y-%m-%d"),
+        "selected_week": start_of_week.strftime("%Y-%m-%d"),
     })
+
 
 @login_required(login_url='/users/login/')
 def my_courses_view(request):
