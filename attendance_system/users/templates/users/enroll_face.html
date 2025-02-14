@@ -1,20 +1,23 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Enroll Face for {{ student.first_name }} {{ student.last_name }} ({{ student.matric_id }})</h2>
+<h2>Enroll Face for {{ student.first_name }} {{ student.last_name }}</h2>
+<p id="status-message">📷 Align your face inside the circle and tap Capture.</p>
 
-<p>Use the webcam to capture and register the student's face for attendance verification.</p>
+<!-- ✅ Video Feed with Face ID Circle -->
+<div class="video-container">
+    <video id="video" autoplay playsinline></video>
+    <div class="face-circle"></div>  <!-- ✅ Circular Face Guide -->
+</div>
 
-<!-- ✅ Video Feed -->
-<video id="video" width="480" height="360" autoplay></video>
+<!-- ✅ Hidden Canvas for Processing -->
 <canvas id="canvas" style="display: none;"></canvas>
 
-<!-- ✅ Capture & Submit Buttons -->
-<button id="capture-btn" class="btn btn-primary">Capture Face</button>
-<button id="submit-btn" class="btn btn-success" style="display: none;">Submit</button>
-<p id="status-message" class="mt-2"></p>
-
-<a href="{% url 'manage_users' %}" class="btn btn-secondary mt-3">Back to Manage Users</a>
+<!-- ✅ Buttons -->
+<div class="button-container">
+    <button id="capture-btn" class="btn btn-primary">📸 Capture</button>
+    <button id="submit-btn" class="btn btn-success" style="display: none;">✅ Submit</button>
+</div>
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
@@ -24,24 +27,47 @@ document.addEventListener("DOMContentLoaded", function () {
     let submitBtn = document.getElementById("submit-btn");
     let statusMessage = document.getElementById("status-message");
 
-    // ✅ Access Webcam
-    navigator.mediaDevices.getUserMedia({ video: true })
-        .then(stream => { video.srcObject = stream; })
-        .catch(error => { statusMessage.innerText = "⚠️ Webcam access denied!"; });
+    // ✅ Select iVCam or Default Webcam
+    navigator.mediaDevices.enumerateDevices().then(devices => {
+        let cameraId = null;
 
-    // ✅ Capture Image
+        devices.forEach(device => {
+            if (device.kind === "videoinput") {
+                console.log(`Camera Found: ${device.label}`);
+                if (device.label.toLowerCase().includes("ivcam")) {
+                    cameraId = device.deviceId;
+                }
+            }
+        });
+
+        let constraints = {
+            video: cameraId ? { deviceId: { exact: cameraId } } : true
+        };
+
+        navigator.mediaDevices.getUserMedia(constraints)
+            .then(stream => { video.srcObject = stream; })
+            .catch(error => {
+                console.error("⚠️ Camera Access Denied:", error);
+                statusMessage.innerText = "⚠️ Webcam access denied!";
+            });
+    });
+
+    // ✅ Capture Image with Smooth Animation
     captureBtn.addEventListener("click", function () {
         let context = canvas.getContext("2d");
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
+        // ✅ Apply Face ID Effect
+        video.style.animation = "fadeOut 0.5s forwards";
+        statusMessage.innerText = "✅ Face Captured! Click Submit to register.";
+
         captureBtn.style.display = "none";
         submitBtn.style.display = "inline-block";
-        statusMessage.innerText = "✅ Face captured! Click Submit to register.";
     });
 
-    // ✅ Submit Image
+    // ✅ Submit Image to Server
     submitBtn.addEventListener("click", function () {
         canvas.toBlob(blob => {
             let formData = new FormData();
@@ -61,6 +87,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     statusMessage.innerText = "⚠️ " + data.message;
                     captureBtn.style.display = "inline-block";
                     submitBtn.style.display = "none";
+                    video.style.animation = "fadeIn 0.5s forwards"; // Reset animation
                 }
             })
             .catch(error => {
@@ -71,5 +98,59 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 });
 </script>
+
+<style>
+/* ✅ Full-Screen Camera Like Face ID */
+.video-container {
+    position: relative;
+    width: 100%;
+    max-width: 400px;
+    margin: auto;
+    overflow: hidden;
+    border-radius: 50%;
+    border: 8px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+}
+video {
+    width: 100%;
+    height: auto;
+    display: block;
+    filter: brightness(1.2) contrast(1.2); /* ✅ Boost visibility */
+}
+
+/* ✅ Circular Face Guide */
+.face-circle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 90%;
+    height: 90%;
+    transform: translate(-50%, -50%);
+    border: 3px solid white;
+    border-radius: 50%;
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+    pointer-events: none;
+}
+
+/* ✅ Button Styles */
+.button-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 10px;
+}
+button {
+    margin: 5px;
+}
+
+/* ✅ Smooth Fade Effect */
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0.2; }
+}
+@keyframes fadeIn {
+    from { opacity: 0.2; }
+    to { opacity: 1; }
+}
+</style>
 
 {% endblock %}
