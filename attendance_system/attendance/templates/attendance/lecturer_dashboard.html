@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Manage Attendance</h2>
+
+{% if sections %}
+<table class="table">
+    <thead>
+        <tr>
+            <th>Section</th>
+            <th>Type</th>
+            <th>Course</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for section in sections %}
+        <tr>
+            <td>{{ section.section_number }}</td>
+            <td>
+                {% if section.section_type == "Lecture" %}
+                    <span class="badge bg-primary">Lecture</span>
+                {% else %}
+                    <span class="badge bg-secondary">Tutorial</span>
+                {% endif %}
+            </td>
+            <td>{{ section.course.name }}</td>
+            <td>
+                <a href="{% url 'weekly_attendance_view' section.id %}" class="btn btn-info btn-sm">Manage Attendance</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>You are not assigned to any sections.</p>
+{% endif %}
+{% endblock %}

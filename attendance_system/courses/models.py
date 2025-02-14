@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import timedelta, datetime
 from django.db import models
 from django.core.exceptions import ValidationError
 from users.models import User
@@ -16,18 +16,18 @@ class Course(models.Model):
         return f"{self.code} - {self.name}"
 
 class Section(models.Model):
-    """Course Sections (Lectures/Tutorials/Labs)"""
+    """Course Sections (Lectures/Tutorials)"""
     SECTION_TYPES = [
         ('Lecture', 'Lecture'),
         ('Tutorial', 'Tutorial'),
-        ('Lab', 'Lab')
     ]
 
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="sections")
     section_type = models.CharField(max_length=10, choices=SECTION_TYPES)
     section_number = models.IntegerField()
     lecturer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, limit_choices_to={'role': 'Lecturer'})
-    schedule = models.DateTimeField(null=True, blank=True)
+    start_date = models.DateField(null=True, blank=True)  # ✅ First class session
+    class_time = models.TimeField(null=True, blank=True)  # ✅ Time for each session
     duration = models.PositiveIntegerField(default=60)  # Duration in minutes
     max_students = models.PositiveIntegerField(default=30)  # ✅ Section-based student limit
 
@@ -38,21 +38,37 @@ class Section(models.Model):
         return f"{self.course.code} - {self.section_type} {self.section_number}"
 
     def clean(self):
-        """Prevent overlapping schedules for lecturers and students."""
-        if self.schedule and self.lecturer:
-            end_time = self.schedule + timedelta(minutes=self.duration)
+        """Prevent overlapping schedules for lecturers."""
+        if self.start_date and self.class_time and self.lecturer:
+            # ✅ Convert class_time to datetime before adding timedelta
+            start_datetime = datetime.combine(self.start_date, self.class_time)
+            end_datetime = start_datetime + timedelta(minutes=self.duration)  
 
-            # Check if this lecturer has another section during the same time
+            # ✅ Find overlapping sections
             overlapping_sections = Section.objects.filter(
                 lecturer=self.lecturer,
-                schedule__lt=end_time,
-                schedule__gte=self.schedule
-            ).exclude(id=self.id)  # Exclude the current section (for editing)
+                start_date=self.start_date,
+                class_time__lt=end_datetime.time(),
+                class_time__gte=self.class_time
+            ).exclude(id=self.id)
 
             if overlapping_sections.exists():
                 raise ValidationError("This lecturer already has a section scheduled at this time.")
 
         super().clean()
+
+class ClassSession(models.Model):
+    """Automatically Generated Weekly Class Sessions for Each Section"""
+    section = models.ForeignKey(Section, on_delete=models.CASCADE, related_name="sessions")
+    week_number = models.IntegerField()
+    date = models.DateField()
+    start_time = models.TimeField()
+
+    class Meta:
+        unique_together = ('section', 'week_number')
+
+    def __str__(self):
+        return f"{self.section} - Week {self.week_number} ({self.date})"
 
 class Enrollment(models.Model):
     """Tracks Student Enrollment in Sections"""
@@ -67,15 +83,17 @@ class Enrollment(models.Model):
 
     def clean(self):
         """Prevent students from enrolling in overlapping schedules and full sections."""
-        if self.section.schedule:
-            end_time = self.section.schedule + timedelta(minutes=self.section.duration)
+        if self.section.start_date:
+            # ✅ Convert class_time to datetime for accurate comparison
+            start_datetime = datetime.combine(self.section.start_date, self.section.class_time)
+            end_datetime = start_datetime + timedelta(minutes=self.section.duration)
 
-            # ✅ Check if the student is already enrolled in another section at the same time
             overlapping_enrollments = Enrollment.objects.filter(
                 student=self.student,
-                section__schedule__lt=end_time,
-                section__schedule__gte=self.section.schedule
-            ).exclude(id=self.id)  # Exclude the current enrollment if updating
+                section__start_date=self.section.start_date,
+                section__class_time__lt=end_datetime.time(),
+                section__class_time__gte=self.section.class_time
+            ).exclude(id=self.id)
 
             if overlapping_enrollments.exists():
                 raise ValidationError("This student is already enrolled in another section at this time.")
@@ -102,7 +120,7 @@ class EnrollmentCart(models.Model):
 
     def clean(self):
         """Prevent students from adding incomplete selections and conflicting sections to their cart."""
-        cart_items = EnrollmentCart.objects.filter(student=self.student).exclude(id=self.id)  # Exclude itself if updating
+        cart_items = EnrollmentCart.objects.filter(student=self.student).exclude(id=self.id)
 
         # ✅ Ensure course requirements are met before allowing finalization
         if not self.lecture_section:
@@ -110,18 +128,24 @@ class EnrollmentCart(models.Model):
         if self.course.tutorial_required and not self.tutorial_section:
             raise ValidationError(f"⚠️ You must select a Tutorial section for {self.course.name}.")
 
-        # ✅ Check for schedule conflicts with already selected sections
+        # ✅ Check for schedule conflicts
         for cart_item in cart_items:
-            if self.lecture_section and cart_item.lecture_section and self.lecture_section.schedule:
-                if (
-                    cart_item.lecture_section.schedule <= self.lecture_section.schedule < cart_item.lecture_section.schedule + timedelta(minutes=cart_item.lecture_section.duration)
-                ):
+            if self.lecture_section and cart_item.lecture_section:
+                start_dt1 = datetime.combine(self.lecture_section.start_date, self.lecture_section.class_time)
+                end_dt1 = start_dt1 + timedelta(minutes=self.lecture_section.duration)
+                start_dt2 = datetime.combine(cart_item.lecture_section.start_date, cart_item.lecture_section.class_time)
+                end_dt2 = start_dt2 + timedelta(minutes=cart_item.lecture_section.duration)
+
+                if (start_dt1 < end_dt2 and start_dt2 < end_dt1):
                     raise ValidationError(f"⚠️ Lecture {self.lecture_section.section_number} conflicts with Lecture {cart_item.lecture_section.section_number}.")
 
-            if self.tutorial_section and cart_item.tutorial_section and self.tutorial_section.schedule:
-                if (
-                    cart_item.tutorial_section.schedule <= self.tutorial_section.schedule < cart_item.tutorial_section.schedule + timedelta(minutes=cart_item.tutorial_section.duration)
-                ):
+            if self.tutorial_section and cart_item.tutorial_section:
+                start_dt1 = datetime.combine(self.tutorial_section.start_date, self.tutorial_section.class_time)
+                end_dt1 = start_dt1 + timedelta(minutes=self.tutorial_section.duration)
+                start_dt2 = datetime.combine(cart_item.tutorial_section.start_date, cart_item.tutorial_section.class_time)
+                end_dt2 = start_dt2 + timedelta(minutes=cart_item.tutorial_section.duration)
+
+                if (start_dt1 < end_dt2 and start_dt2 < end_dt1):
                     raise ValidationError(f"⚠️ Tutorial {self.tutorial_section.section_number} conflicts with Tutorial {cart_item.tutorial_section.section_number}.")
 
         # ✅ Ensure the selected section is not already full

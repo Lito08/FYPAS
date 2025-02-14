@@ -41,14 +41,14 @@
             <td>{{ section.section_type }} {{ section.section_number }}</td>
             <td>{{ section.max_students|default:30|add:"- "|add:section.enrollment_set.count }}</td>
             <td>
-                {% if section.schedule %}
-                    {{ section.schedule|date:"l, d M Y H:i A" }}
+                {% if section.start_date and section.class_time %}
+                    {{ section.start_date|date:"l, d M Y" }} at {{ section.class_time|time:"h:i A" }}
                 {% else %}
                     <span class="text-danger">TBA</span>
                 {% endif %}
             </td>
             <td>
-                {% if section.schedule %}
+                {% if section.start_date and section.class_time %}
                     {% if section.enrollment_set.count < section.max_students %}
                         {% if cart_item.lecture_section and cart_item.lecture_section.id == section.id %}
                             <button class="btn btn-secondary btn-sm" disabled>Lecture Selected</button>
@@ -91,14 +91,14 @@
             <td>{{ section.section_type }} {{ section.section_number }}</td>
             <td>{{ section.max_students|default:30|add:"- "|add:section.enrollment_set.count }}</td>
             <td>
-                {% if section.schedule %}
-                    {{ section.schedule|date:"l, d M Y H:i A" }}
+                {% if section.start_date and section.class_time %}
+                    {{ section.start_date|date:"l, d M Y" }} at {{ section.class_time|time:"h:i A" }}
                 {% else %}
                     <span class="text-danger">TBA</span>
                 {% endif %}
             </td>
             <td>
-                {% if section.schedule %}
+                {% if section.start_date and section.class_time %}
                     {% if section.enrollment_set.count < section.max_students %}
                         {% if cart_item.tutorial_section and cart_item.tutorial_section.id == section.id %}
                             <button class="btn btn-secondary btn-sm" disabled>Tutorial Selected</button>

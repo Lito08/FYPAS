@@ -1,9 +1,13 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse
 from django.contrib import messages
-from .models import Course, Section, Enrollment, EnrollmentCart
-from .forms import CourseForm, SectionForm, EnrollmentForm, EnrollmentCartForm
-from datetime import timedelta
+from .models import Course, Section, Enrollment, EnrollmentCart, ClassSession
+from .forms import CourseForm, SectionForm, EnrollmentForm, EnrollmentCartForm, AdminEnrollmentForm
+from datetime import timedelta, datetime
+from django.utils.timezone import now
+from django.http import JsonResponse
+from django.db.models import Min
 
 # 🔹 MANAGE COURSES
 @login_required(login_url='/users/login/')
@@ -16,6 +20,7 @@ def manage_courses_view(request):
 
 @login_required(login_url='/users/login/')
 def create_course_view(request):
+    """Allows Admins to create a course and auto-generate required sections."""
     if request.user.role not in ['Superadmin', 'Admin']:
         return render(request, 'access_denied.html')
 
@@ -24,25 +29,32 @@ def create_course_view(request):
         if form.is_valid():
             course = form.save()
 
-            # ✅ Auto-create Lecture Section
+            # ✅ Auto-create Lecture & Tutorial Sections (if required)
+            sections_to_create = []
             if course.lecture_required:
-                Section.objects.create(
+                sections_to_create.append(('Lecture', 1))
+            if course.tutorial_required:
+                sections_to_create.append(('Tutorial', 1))
+
+            for section_type, section_number in sections_to_create:
+                section = Section.objects.create(
                     course=course,
-                    section_type='Lecture',
-                    section_number=1,  # Default section number
-                    schedule=None,  # Can be set later
-                    duration=60  # Default 1 hour
+                    section_type=section_type,
+                    section_number=section_number,
+                    start_date=None,  # Start date will be assigned later
+                    class_time=None,  # Class time will be assigned later
+                    duration=60,  # Default 1 hour
                 )
 
-            # ✅ Auto-create Tutorial Section
-            if course.tutorial_required:
-                Section.objects.create(
-                    course=course,
-                    section_type='Tutorial',
-                    section_number=1,  # Default section number
-                    schedule=None,  # Can be set later
-                    duration=60  # Default 1 hour
-                )
+                # ✅ Generate 14 weeks of class sessions only when start_date & class_time are set
+                if section.start_date and section.class_time:
+                    for week in range(1, 15):
+                        ClassSession.objects.create(
+                            section=section,
+                            week_number=week,
+                            date=section.start_date + timedelta(weeks=week - 1),
+                            start_time=section.class_time
+                        )
 
             messages.success(request, "Course and required sections created successfully!")
             return redirect('manage_courses')
@@ -53,6 +65,7 @@ def create_course_view(request):
 
 @login_required(login_url='/users/login/')
 def edit_course_view(request, course_id):
+    """Allows Admins to edit a course and auto-handle related sections."""
     course = get_object_or_404(Course, id=course_id)
 
     if request.user.role not in ['Superadmin', 'Admin']:
@@ -63,25 +76,41 @@ def edit_course_view(request, course_id):
         if form.is_valid():
             course = form.save()
 
-            # ✅ Handle Lecture Section Creation/Deletion
+            # ✅ Handle Lecture Section
             if course.lecture_required:
-                Section.objects.get_or_create(
+                lecture_section, created = Section.objects.get_or_create(
                     course=course,
                     section_type='Lecture',
-                    section_number=1,  # Default section number
-                    defaults={'schedule': None, 'duration': 60}
+                    section_number=1,
+                    defaults={'start_date': None, 'class_time': None, 'duration': 60}
                 )
+                if created and lecture_section.start_date and lecture_section.class_time:
+                    for week in range(1, 15):
+                        ClassSession.objects.create(
+                            section=lecture_section,
+                            week_number=week,
+                            date=lecture_section.start_date + timedelta(weeks=week - 1),
+                            start_time=lecture_section.class_time
+                        )
             else:
                 Section.objects.filter(course=course, section_type='Lecture').delete()
 
-            # ✅ Handle Tutorial Section Creation/Deletion
+            # ✅ Handle Tutorial Section
             if course.tutorial_required:
-                Section.objects.get_or_create(
+                tutorial_section, created = Section.objects.get_or_create(
                     course=course,
                     section_type='Tutorial',
-                    section_number=1,  # Default section number
-                    defaults={'schedule': None, 'duration': 60}
+                    section_number=1,
+                    defaults={'start_date': None, 'class_time': None, 'duration': 60}
                 )
+                if created and tutorial_section.start_date and tutorial_section.class_time:
+                    for week in range(1, 15):
+                        ClassSession.objects.create(
+                            section=tutorial_section,
+                            week_number=week,
+                            date=tutorial_section.start_date + timedelta(weeks=week - 1),
+                            start_time=tutorial_section.class_time
+                        )
             else:
                 Section.objects.filter(course=course, section_type='Tutorial').delete()
 
@@ -117,7 +146,14 @@ def manage_sections_view(request):
         return render(request, 'access_denied.html')
 
     sections = Section.objects.all()
-    return render(request, 'courses/manage_sections.html', {'sections': sections})
+
+    # ✅ Find sections missing class sessions
+    sections_missing_classes = [s for s in sections if s.sessions.count() == 0]
+
+    return render(request, 'courses/manage_sections.html', {
+        'sections': sections,
+        'sections_missing_classes': sections_missing_classes
+    })
 
 @login_required(login_url='/users/login/')
 def create_section_view(request, course_id=None):
@@ -134,12 +170,24 @@ def create_section_view(request, course_id=None):
         if form.is_valid():
             section = form.save(commit=False)
             if course:
-                section.course = course  # ✅ Automatically assign the course
+                section.course = course  # ✅ Assign course
             section.save()
-            messages.success(request, "Section created successfully!")
+
+            # ✅ Ensure class sessions are generated correctly
+            existing_sessions = ClassSession.objects.filter(section=section).count()
+            if existing_sessions == 0:
+                for week in range(1, 15):  # ✅ Generate 14 weeks
+                    ClassSession.objects.create(
+                        section=section,
+                        week_number=week,
+                        date=section.start_date + timedelta(weeks=week - 1),
+                        start_time=section.class_time
+                    )
+
+            messages.success(request, "Section created and class sessions generated successfully!")
             return redirect('view_course_sections', course_id=course.id)
     else:
-        form = SectionForm(initial={'course': course})  # ✅ Prefill course field if provided
+        form = SectionForm(initial={'course': course})
 
     return render(request, 'courses/create_section.html', {'form': form, 'course': course})
 
@@ -153,9 +201,25 @@ def edit_section_view(request, section_id):
     if request.method == 'POST':
         form = SectionForm(request.POST, instance=section)
         if form.is_valid():
-            form.save()
-            messages.success(request, "Section updated successfully!")
+            section = form.save()
+
+            # ✅ Ensure class sessions are generated if they don't exist
+            existing_sessions = ClassSession.objects.filter(section=section).count()
+            if existing_sessions == 0:
+                for week in range(1, 15):  # ✅ Generate 14 weeks if missing
+                    ClassSession.objects.create(
+                        section=section,
+                        week_number=week,
+                        date=section.start_date + timedelta(weeks=week - 1),
+                        start_time=section.class_time
+                    )
+                messages.success(request, "Section updated and missing class sessions were generated!")
+
+            else:
+                messages.success(request, "Section updated successfully!")
+
             return redirect('manage_sections')
+
     else:
         form = SectionForm(instance=section)
 
@@ -180,21 +244,21 @@ def admin_enroll_student_view(request):
         return render(request, 'courses/access_denied.html')
 
     if request.method == 'POST':
-        form = EnrollmentForm(request.POST)
+        form = AdminEnrollmentForm(request.POST)
         if form.is_valid():
             enrollment = form.save(commit=False)
 
             # ✅ Check if section is full
             enrolled_students = Enrollment.objects.filter(section=enrollment.section).count()
             if enrolled_students >= enrollment.section.max_students:
-                messages.error(request, f"The section {enrollment.section.section_type} {enrollment.section.section_number} is full. Please select another.")
+                messages.error(request, f"The section {enrollment.section.section_type} {enrollment.section.section_number} is full.")
                 return render(request, 'courses/admin_enroll_student.html', {'form': form})
 
             enrollment.save()
             messages.success(request, "Student enrolled successfully!")
             return redirect('manage_enrollments')
     else:
-        form = EnrollmentForm()
+        form = AdminEnrollmentForm()
 
     return render(request, 'courses/admin_enroll_student.html', {'form': form})
 
@@ -233,7 +297,7 @@ def unenroll_student_view(request, enrollment_id):
     messages.success(request, "Student unenrolled successfully!")
     return redirect('manage_enrollments')
 
-# 🔹 SELECT COURSES (Step 1)
+# 🔹 SELECT COURSES
 @login_required(login_url='/users/login/')
 def select_course_view(request):
     """Step 1: Student selects courses to enroll in, excluding already enrolled ones."""
@@ -248,7 +312,7 @@ def select_course_view(request):
 
     return render(request, 'courses/select_course.html', {'courses': available_courses})
 
-# 🔹 SELECT SECTIONS (Step 2)
+# 🔹 SELECT SECTIONS
 @login_required(login_url='/users/login/')
 def select_sections_view(request, course_id):
     """Allows students to select lecture and tutorial sections separately and add them to cart."""
@@ -273,19 +337,36 @@ def select_sections_view(request, course_id):
         section_id = request.POST.get('section_id')
         section = get_object_or_404(Section, id=section_id)
 
+        # ✅ Ensure section has a valid schedule
+        if not section.start_date or not section.class_time:
+            messages.error(request, f"⚠️ Cannot select {section.section_type} {section.section_number} as its schedule is not set.")
+            return redirect('select_sections', course_id=course.id)
+
+        # ✅ Convert to full datetime for proper time calculations
+        selected_section_start = datetime.combine(section.start_date, section.class_time)
+        selected_section_end = selected_section_start + timedelta(minutes=section.duration)
+
         # ✅ Prevent schedule clashes with sections already in the cart
-        if cart_item.lecture_section and cart_item.lecture_section.schedule and section.schedule:
+        if cart_item.lecture_section and cart_item.lecture_section.start_date and cart_item.lecture_section.class_time:
+            lecture_start = datetime.combine(cart_item.lecture_section.start_date, cart_item.lecture_section.class_time)
+            lecture_end = lecture_start + timedelta(minutes=cart_item.lecture_section.duration)
+
             if (
-                cart_item.lecture_section.schedule <= section.schedule < cart_item.lecture_section.schedule + timedelta(minutes=cart_item.lecture_section.duration)
+                lecture_start <= selected_section_start < lecture_end or
+                lecture_start < selected_section_end <= lecture_end
             ):
-                messages.error(request, f"Cannot add {section.section_type} {section.section_number} as it conflicts with Lecture {cart_item.lecture_section.section_number}.")
+                messages.error(request, f"⚠️ Cannot add {section.section_type} {section.section_number} as it conflicts with Lecture {cart_item.lecture_section.section_number}.")
                 return redirect('select_sections', course_id=course.id)
 
-        if cart_item.tutorial_section and cart_item.tutorial_section.schedule and section.schedule:
+        if cart_item.tutorial_section and cart_item.tutorial_section.start_date and cart_item.tutorial_section.class_time:
+            tutorial_start = datetime.combine(cart_item.tutorial_section.start_date, cart_item.tutorial_section.class_time)
+            tutorial_end = tutorial_start + timedelta(minutes=cart_item.tutorial_section.duration)
+
             if (
-                cart_item.tutorial_section.schedule <= section.schedule < cart_item.tutorial_section.schedule + timedelta(minutes=cart_item.tutorial_section.duration)
+                tutorial_start <= selected_section_start < tutorial_end or
+                tutorial_start < selected_section_end <= tutorial_end
             ):
-                messages.error(request, f"Cannot add {section.section_type} {section.section_number} as it conflicts with Tutorial {cart_item.tutorial_section.section_number}.")
+                messages.error(request, f"⚠️ Cannot add {section.section_type} {section.section_number} as it conflicts with Tutorial {cart_item.tutorial_section.section_number}.")
                 return redirect('select_sections', course_id=course.id)
 
         # ✅ Add section to cart (Lecture or Tutorial)
@@ -295,7 +376,7 @@ def select_sections_view(request, course_id):
             cart_item.tutorial_section = section  # Ensures only one tutorial section
         cart_item.save()
 
-        messages.success(request, f"{section.section_type} {section.section_number} added to cart successfully!")
+        messages.success(request, f"✅ {section.section_type} {section.section_number} added to cart successfully!")
 
         # ✅ Stay on page until all required selections are made
         if cart_item.lecture_section and (not course.tutorial_required or cart_item.tutorial_section):
@@ -310,7 +391,7 @@ def select_sections_view(request, course_id):
         'cart_item': cart_item
     })
 
-# 🔹 REVIEW CART (Step 3)
+# 🔹 REVIEW CART
 @login_required(login_url='/users/login/')
 def review_cart_view(request):
     """Step 3: Student reviews selected courses before final enrollment."""
@@ -332,7 +413,7 @@ def remove_from_cart_view(request, cart_id):
     messages.success(request, "Course removed from cart!")
     return redirect('review_cart')
 
-# 🔹 FINALIZE ENROLLMENT (Step 4)
+# 🔹 FINALIZE ENROLLMENT
 @login_required(login_url='/users/login/')
 def finalize_enrollment_view(request):
     """Step 4: Finalize enrollment for all selected courses."""
@@ -362,23 +443,57 @@ def finalize_enrollment_view(request):
     messages.success(request, "Enrollment completed successfully!")
     return redirect('student_schedule')
 
-# 🔹 VIEW STUDENT SCHEDULE
 @login_required(login_url='/users/login/')
 def student_schedule_view(request):
-    """Displays the enrolled sections in a weekly schedule."""
-    if request.user.role != 'Student':
-        return render(request, 'courses/access_denied.html')
+    """Displays the student's weekly schedule with AJAX support."""
+    student = request.user
+    enrollments = Enrollment.objects.filter(student=student).select_related('section__course')
 
-    enrollments = Enrollment.objects.filter(student=request.user).select_related('section').order_by('section__schedule')
+    # ✅ Get the selected week date from the request
+    week_date_str = request.GET.get("week_date")
+    if week_date_str:
+        selected_date = datetime.strptime(week_date_str, "%Y-%m-%d").date()
+    else:
+        selected_date = now().date()  # Default to today's date
 
-    # Define available hours and weekdays
-    hours = [str(i).zfill(2) for i in range(8, 22)]  # 08:00 to 21:00
-    weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+    # ✅ Find the earliest start date among the student's enrolled courses
+    earliest_start_date = enrollments.aggregate(Min("section__start_date"))["section__start_date__min"]
+    
+    if earliest_start_date:
+        # ✅ Adjust the selected week based on the actual start date
+        week_offset = (selected_date - earliest_start_date).days // 7
+        start_of_week = earliest_start_date + timedelta(weeks=week_offset)
+    else:
+        # If no courses have a start date, default to the current week
+        start_of_week = selected_date - timedelta(days=selected_date.weekday())
 
-    return render(request, 'courses/student_schedule.html', {
-        'enrollments': enrollments,
-        'hours': hours,
-        'weekdays': weekdays
+    # ✅ Retrieve class sessions for the student's enrolled sections
+    weekly_schedule = []
+    for enrollment in enrollments:
+        class_sessions = ClassSession.objects.filter(
+            section=enrollment.section,
+            date__range=[start_of_week, start_of_week + timedelta(days=4)]
+        )
+
+        for session in class_sessions:
+            weekly_schedule.append({
+                "course": enrollment.section.course.name,
+                "type": enrollment.section.section_type,
+                "day": session.date.strftime("%A"),
+                "hour": session.start_time.hour,
+            })
+
+    # ✅ Debugging Output
+    print(f"Adjusted Start of Week: {start_of_week} | Selected Date: {selected_date}")
+    print("Weekly Schedule Data:", weekly_schedule)
+
+    # ✅ Return JSON if it's an AJAX request
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse({"schedule": weekly_schedule, "start_of_week": start_of_week.strftime("%Y-%m-%d")})
+
+    return render(request, "courses/student_schedule.html", {
+        "enrollments": enrollments,
+        "selected_week": start_of_week.strftime("%Y-%m-%d"),
     })
 
 @login_required(login_url='/users/login/')

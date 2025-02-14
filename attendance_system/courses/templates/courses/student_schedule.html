@@ -2,8 +2,6 @@
 
 {% block content %}
 <h2>My Schedule</h2>
-
-<!-- ✅ Enrolled Courses Table -->
 {% if enrollments %}
     <h4>Enrolled Courses</h4>
     <table class="table table-bordered">
@@ -12,7 +10,6 @@
                 <th>Course</th>
                 <th>Section</th>
                 <th>Type</th>
-                <th>Schedule</th>
                 <th>Duration</th>
             </tr>
         </thead>
@@ -22,13 +19,6 @@
                 <td>{{ enrollment.section.course.name }}</td>
                 <td>{{ enrollment.section.section_number }}</td>
                 <td>{{ enrollment.section.section_type }}</td>
-                <td>
-                    {% if enrollment.section.schedule %}
-                        {{ enrollment.section.schedule|date:"l, d M Y H:i A" }}
-                    {% else %}
-                        Not Scheduled
-                    {% endif %}
-                </td>
                 <td>{{ enrollment.section.duration }} minutes</td>
             </tr>
             {% endfor %}
@@ -37,6 +27,12 @@
 
     <!-- ✅ Weekly Schedule Table -->
     <h4>Weekly Schedule</h4>
+    <!-- ✅ Week Selection Controls -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <button id="prev-week" class="btn btn-secondary">←</button>
+        <h5 id="current-week"></h5>
+        <button id="next-week" class="btn btn-secondary">→</button>
+    </div>
     <table class="table table-bordered text-center">
         <thead>
             <tr>
@@ -48,36 +44,90 @@
                 <th>Friday</th>
             </tr>
         </thead>
-        <tbody>
-            {% for hour in hours %}
-            <tr>
-                <td>{{ hour }}:00</td>
-                {% for day in weekdays %}
-                    {% with class_found=False %}
-                    {% for enrollment in enrollments %}
-                        {% if enrollment.section.schedule|date:"l" == day and enrollment.section.schedule|date:"H" == hour %}
-                            {% if not class_found %}
-                                <td rowspan="{{ enrollment.section.duration|divisibleby:60|yesno:'2,3,4' }}" 
-                                    class="class-box" style="background-color: #f8d7da; padding: 10px; border-radius: 5px;">
-                                    <strong>{{ enrollment.section.course.name }}</strong><br>
-                                    {{ enrollment.section.section_type }} ({{ enrollment.section.duration }} min)
-                                </td>
-                                {% with class_found=True %}
-                                {% endwith %}
-                            {% endif %}
-                        {% endif %}
-                    {% endfor %}
-                    
-                    {% if not class_found %}
-                        <td></td>  <!-- Empty cell for hours with no class -->
-                    {% endif %}
-                    {% endwith %}
-                {% endfor %}
-            </tr>
-            {% endfor %}
+        <tbody id="schedule-table">
+            <!-- ✅ Schedule will be dynamically updated here -->
         </tbody>
     </table>
-
+    
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            let currentDate = new Date();  // ✅ Get current date
+            let isFetching = false;  // ✅ Prevent multiple fetch calls
+            const currentWeekElement = document.getElementById("current-week");
+            const prevWeekBtn = document.getElementById("prev-week");
+            const nextWeekBtn = document.getElementById("next-week");
+            const scheduleTable = document.getElementById("schedule-table");
+        
+            function updateWeekDisplay() {
+                if (isFetching) return;  // ✅ Prevent redundant fetch calls
+                isFetching = true;
+        
+                let startOfWeek = new Date(currentDate);
+                startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay() + 1); // Set to Monday
+                let endOfWeek = new Date(startOfWeek);
+                endOfWeek.setDate(endOfWeek.getDate() + 4); // Set to Friday
+        
+                currentWeekElement.innerText = `Week of ${startOfWeek.toLocaleDateString()} - ${endOfWeek.toLocaleDateString()}`;
+        
+                // ✅ Fetch updated schedule for this week
+                fetchSchedule(startOfWeek.toISOString().split("T")[0]);
+            }
+        
+            prevWeekBtn.addEventListener("click", function () {
+                currentDate.setDate(currentDate.getDate() - 7);
+                updateWeekDisplay();
+            });
+        
+            nextWeekBtn.addEventListener("click", function () {
+                currentDate.setDate(currentDate.getDate() + 7);
+                updateWeekDisplay();
+            });
+        
+            function fetchSchedule(date) {
+                console.log("Fetching schedule for:", date);
+                fetch(`/courses/student-schedule/?week_date=${date}`, {
+                    headers: { "X-Requested-With": "XMLHttpRequest" }, // ✅ Ensures Django returns JSON
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log("Fetched Schedule:", data);
+                    if (data.schedule) {
+                        updateScheduleTable(data.schedule);
+                    } else {
+                        console.warn("No schedule data found for this week.");
+                    }
+                    isFetching = false;
+                })
+                .catch(error => {
+                    console.error("Error fetching schedule:", error);
+                    isFetching = false;
+                });
+            }
+        
+            function updateScheduleTable(schedule) {
+                scheduleTable.innerHTML = ""; // ✅ Clear table before updating
+        
+                for (let hour = 8; hour <= 21; hour++) {
+                    let row = `<tr><td>${hour}:00</td>`;
+                    ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].forEach(day => {
+                        let classData = schedule.find(cls => cls.day === day && cls.hour === hour);
+                        row += `<td>${classData ? `<div class="class-box" style="background-color: #f8d7da; padding: 10px; border-radius: 5px;">
+                                <strong>${classData.course}</strong><br>${classData.type}</div>` : ""}</td>`;
+                    });
+                    row += "</tr>";
+                    scheduleTable.innerHTML += row;
+                }
+            }
+        
+            updateWeekDisplay(); // ✅ Initialize with the current week
+        });
+    </script>
+        
 {% else %}
     <p>You are not enrolled in any courses yet.</p>
 {% endif %}

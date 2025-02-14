@@ -1,6 +1,7 @@
 from django import forms
 from .models import Course, Section, Enrollment, EnrollmentCart
 from datetime import timedelta
+from users.models import User
 
 class CourseForm(forms.ModelForm):
     class Meta:
@@ -8,9 +9,14 @@ class CourseForm(forms.ModelForm):
         fields = ['code', 'name', 'description', 'lecture_required', 'tutorial_required']
 
 class SectionForm(forms.ModelForm):
-    schedule = forms.DateTimeField(
-        required=False,
-        widget=forms.DateTimeInput(attrs={'type': 'datetime-local'})
+    start_date = forms.DateField(
+        required=True,
+        widget=forms.DateInput(attrs={'type': 'date'})
+    )
+
+    class_time = forms.TimeField(
+        required=True,
+        widget=forms.TimeInput(attrs={'type': 'time'})
     )
 
     duration = forms.IntegerField(
@@ -29,22 +35,24 @@ class SectionForm(forms.ModelForm):
 
     class Meta:
         model = Section
-        fields = ['course', 'section_type', 'section_number', 'lecturer', 'schedule', 'duration', 'max_students']
+        fields = ['course', 'section_type', 'section_number', 'lecturer', 'start_date', 'class_time', 'duration', 'max_students']
 
     def clean(self):
         """Validate schedule conflicts and ensure correct section limits."""
         cleaned_data = super().clean()
-        schedule = cleaned_data.get("schedule")
+        start_date = cleaned_data.get("start_date")
+        class_time = cleaned_data.get("class_time")
         lecturer = cleaned_data.get("lecturer")
 
-        if schedule and lecturer:
+        if start_date and class_time and lecturer:
             try:
                 section = Section(
                     course=cleaned_data["course"],
                     section_type=cleaned_data["section_type"],
                     section_number=cleaned_data["section_number"],
                     lecturer=lecturer,
-                    schedule=schedule,
+                    start_date=start_date,
+                    class_time=class_time,
                     duration=cleaned_data["duration"],
                     max_students=cleaned_data["max_students"]
                 )
@@ -134,4 +142,17 @@ class EnrollmentCartForm(forms.ModelForm):
             raise forms.ValidationError(f"Tutorial section {tutorial_section.section_number} is full. Please select another.")
 
         return cleaned_data
+
+class AdminEnrollmentForm(forms.ModelForm):
+    """Form for Admins/Superadmins to enroll students manually without schedule restrictions."""
+    
+    student = forms.ModelChoiceField(
+        queryset=User.objects.filter(role='Student'),  # ✅ Fetch only Students
+        required=True,
+        label="Select Student"
+    )
+
+    class Meta:
+        model = Enrollment
+        fields = ['student', 'section']
 
