@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block content %}
 <h2>Face Recognition Attendance</h2>
@@ -8,7 +9,7 @@
 <video id="video" width="640" height="480" autoplay></video>
 <button id="capture-btn" class="btn btn-primary">Capture & Submit</button>
 
-<!-- ✅ Canvas (Hidden) for Image Capture -->
+<!-- ✅ Hidden Canvas for Image Capture -->
 <canvas id="canvas" width="640" height="480" style="display: none;"></canvas>
 
 <script>
@@ -52,10 +53,18 @@ document.addEventListener("DOMContentLoaded", function () {
             const formData = new FormData();
             formData.append("face_image", blob);
 
+            // ✅ Get CSRF token from Django cookies
+            function getCSRFToken() {
+                return document.cookie.split("; ")
+                    .find(row => row.startsWith("csrftoken="))
+                    ?.split("=")[1];
+            }
+
             // ✅ Send image to the backend for recognition
             fetch("{{ request.path }}", {
                 method: "POST",
-                body: formData
+                body: formData,
+                headers: { "X-CSRFToken": getCSRFToken() }  // ✅ Add CSRF token
             })
             .then(response => response.json())
             .then(data => {
