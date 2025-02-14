@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     take_attendance, attendance_records,
     lecturer_attendance_dashboard, weekly_attendance_view, toggle_face_recognition_weekly,
-    generate_qr_attendance, manual_attendance, face_recognition_attendance
+    generate_qr_attendance, manual_attendance
 )
 
 urlpatterns = [
@@ -15,5 +15,4 @@ urlpatterns = [
     
     path("generate-qr/<int:section_id>/<int:week_number>/", generate_qr_attendance, name="generate_qr_attendance"),
     path("manual-attendance/<int:section_id>/<int:week_number>/", manual_attendance, name="manual_attendance"),
-    path("face-recognition/<int:section_id>/<int:week_number>/", face_recognition_attendance, name="face_recognition_attendance"),
 ]

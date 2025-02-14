@@ -11,7 +11,7 @@ class UserManager(BaseUserManager):
 
         # Generate Matric ID
         prefix = {'Admin': 'A', 'Lecturer': 'L', 'Student': 'S'}.get(role, 'U')
-        random_id = ''.join(random.choices(string.digits, k=7))  # FIXED: Generating ID correctly
+        random_id = ''.join(random.choices(string.digits, k=7))  # Generate random ID
         matric_id = f"{prefix}{random_id}"
 
         # Generate university email
@@ -27,7 +27,7 @@ class UserManager(BaseUserManager):
             first_login=True,  # User must change password on first login
             **extra_fields
         )
-        temp_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))  # FIXED: Generate password
+        temp_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))  # Generate password
         user.set_password(temp_password)
         user.save(using=self._db)
         return user, temp_password
@@ -61,4 +61,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     objects = UserManager()
 
     def __str__(self):
-        return self.matric_id
+        return f"{self.first_name} {self.last_name} ({self.matric_id})"
+
+### **🔥 New Model: Face Encoding**
+class FaceEncoding(models.Model):
+    """Stores the student's face encodings for face recognition-based attendance."""
+    student = models.OneToOneField(User, on_delete=models.CASCADE, limit_choices_to={'role': 'Student'})
+    encoding = models.TextField()  # ✅ Stores the numpy face encoding as a text string
+
+    def __str__(self):
+        return f"Face Encoding for {self.student.matric_id}"

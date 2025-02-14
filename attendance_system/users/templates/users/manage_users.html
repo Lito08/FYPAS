@@ -64,6 +64,7 @@
             <th>Matric ID</th>
             <th>Name</th>
             <th>Email</th>
+            <th>Face Registration</th>
             <th>Actions</th>
         </tr>
     </thead>
@@ -73,6 +74,13 @@
             <td>{{ student.matric_id }}</td>
             <td>{{ student.first_name }} {{ student.last_name }}</td>
             <td>{{ student.email }}</td>
+            <td>
+                {% if student.face_registered %}
+                    <span class="text-success">✅ Face Registered</span>
+                {% else %}
+                    <a href="{% url 'enroll_face' student.id %}" class="btn btn-primary btn-sm">Enroll Face</a>
+                {% endif %}
+            </td>
             <td>
                 <a href="{% url 'edit_user' student.id %}" class="btn btn-warning btn-sm">Edit</a>
                 <a href="{% url 'delete_user' student.id %}" class="btn btn-danger btn-sm">Delete</a>

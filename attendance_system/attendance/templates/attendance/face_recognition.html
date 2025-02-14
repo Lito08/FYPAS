@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Face Recognition Attendance</h2>
+<p>Hi, {{ student.first_name }}! Please scan your face and blink twice to verify your attendance.</p>
+
+<div class="video-container">
+    <video id="video" autoplay></video>
+    <button id="capture" class="btn btn-primary mt-3" disabled>Detecting Liveness...</button>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const video = document.getElementById("video");
+    const captureBtn = document.getElementById("capture");
+    const canvas = document.createElement("canvas");
+    let blinkCount = 0;
+    let lastFrame = null;
+    let livenessConfirmed = false;
+
+    // ✅ Access the camera
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+            video.srcObject = stream;
+        })
+        .catch(err => console.error("Camera access error:", err));
+
+    function detectBlinkAndMotion() {
+        const context = canvas.getContext("2d");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        let currentFrame = context.getImageData(0, 0, canvas.width, canvas.height);
+        if (lastFrame) {
+            let diffCount = 0;
+            for (let i = 0; i < currentFrame.data.length; i += 4) {
+                if (Math.abs(currentFrame.data[i] - lastFrame.data[i]) > 25) {
+                    diffCount++;
+                }
+            }
+            if (diffCount > 1000) { // ✅ Adjust threshold for motion
+                blinkCount++;
+                console.log("Blink detected:", blinkCount);
+            }
+        }
+        lastFrame = currentFrame;
+
+        if (blinkCount >= 2) {
+            livenessConfirmed = true;
+            captureBtn.innerText = "Capture Face";
+            captureBtn.disabled = false;
+        }
+
+        if (!livenessConfirmed) {
+            requestAnimationFrame(detectBlinkAndMotion);
+        }
+    }
+
+    video.addEventListener("play", function () {
+        detectBlinkAndMotion();
+    });
+
+    // ✅ Capture image when the button is clicked
+    captureBtn.addEventListener("click", function () {
+        if (!livenessConfirmed) {
+            alert("Liveness detection failed! Please blink twice.");
+            return;
+        }
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // ✅ Convert image to blob and send to backend
+        canvas.toBlob(blob => {
+            let formData = new FormData();
+            formData.append("face_image", blob);
+
+            fetch("{% url 'face_recognition_attendance' section_id=section.id week_number=week_number %}", {
+                method: "POST",
+                body: formData,
+                headers: { "X-CSRFToken": "{{ csrf_token }}" }
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);  // ✅ Show response message
+                if (data.status === "success") {
+                    window.location.href = "{% url 'student_schedule' %}";  // ✅ Redirect on success
+                }
+            })
+            .catch(error => console.error("Error:", error));
+        }, "image/jpeg");
+    });
+});
+</script>
+
+<style>
+.video-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+video {
+    border: 2px solid black;
+    width: 80%;
+    max-width: 500px;
+}
+</style>
+
+{% endblock %}

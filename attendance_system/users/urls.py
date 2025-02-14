@@ -3,7 +3,7 @@ from django.urls import path
 from . import views
 from django.contrib.auth import views as auth_views
 from users.forms import CustomPasswordResetForm
-from .views import change_password_view, dashboard_view, manage_users_view, create_user_view, edit_user_view, delete_user_view
+from .views import change_password_view, dashboard_view, manage_users_view, create_user_view, edit_user_view, delete_user_view, enroll_face, capture_face_encoding
 
 urlpatterns = [
     path('login/', views.login_view, name='login'),
@@ -28,4 +28,7 @@ urlpatterns = [
     path('create-user/', create_user_view, name='create_user'),
     path('edit-user/<int:user_id>/', edit_user_view, name='edit_user'),
     path('delete-user/<int:user_id>/', delete_user_view, name='delete_user'),
+    
+    path("enroll-face/<int:user_id>/", enroll_face, name="enroll_face"),
+    path("capture-face/<int:user_id>/", capture_face_encoding, name="capture_face_encoding"),
 ]

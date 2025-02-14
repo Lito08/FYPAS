@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Enroll Face for {{ student.first_name }} {{ student.last_name }} ({{ student.matric_id }})</h2>
+
+<p>Use the webcam to capture and register the student's face for attendance verification.</p>
+
+<!-- ✅ Video Feed -->
+<video id="video" width="480" height="360" autoplay></video>
+<canvas id="canvas" style="display: none;"></canvas>
+
+<!-- ✅ Capture & Submit Buttons -->
+<button id="capture-btn" class="btn btn-primary">Capture Face</button>
+<button id="submit-btn" class="btn btn-success" style="display: none;">Submit</button>
+<p id="status-message" class="mt-2"></p>
+
+<a href="{% url 'manage_users' %}" class="btn btn-secondary mt-3">Back to Manage Users</a>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    let video = document.getElementById("video");
+    let canvas = document.getElementById("canvas");
+    let captureBtn = document.getElementById("capture-btn");
+    let submitBtn = document.getElementById("submit-btn");
+    let statusMessage = document.getElementById("status-message");
+
+    // ✅ Access Webcam
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => { video.srcObject = stream; })
+        .catch(error => { statusMessage.innerText = "⚠️ Webcam access denied!"; });
+
+    // ✅ Capture Image
+    captureBtn.addEventListener("click", function () {
+        let context = canvas.getContext("2d");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        captureBtn.style.display = "none";
+        submitBtn.style.display = "inline-block";
+        statusMessage.innerText = "✅ Face captured! Click Submit to register.";
+    });
+
+    // ✅ Submit Image
+    submitBtn.addEventListener("click", function () {
+        canvas.toBlob(blob => {
+            let formData = new FormData();
+            formData.append("face_image", blob);
+
+            fetch("{% url 'enroll_face' student.id %}", {
+                method: "POST",
+                body: formData,
+                headers: { "X-CSRFToken": "{{ csrf_token }}" }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    statusMessage.innerHTML = "✅ Face registered successfully! <br>Redirecting...";
+                    setTimeout(() => { window.location.href = "{% url 'manage_users' %}"; }, 2000);
+                } else {
+                    statusMessage.innerText = "⚠️ " + data.message;
+                    captureBtn.style.display = "inline-block";
+                    submitBtn.style.display = "none";
+                }
+            })
+            .catch(error => {
+                statusMessage.innerText = "⚠️ Error registering face.";
+                console.error("Error:", error);
+            });
+        }, "image/jpeg");
+    });
+});
+</script>
+
+{% endblock %}

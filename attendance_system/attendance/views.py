@@ -1,11 +1,7 @@
 import qrcode
 import os
-import cv2
-import numpy as np
-import face_recognition
 from io import BytesIO
 from django.conf import settings
-from django.core.files.storage import default_storage
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -189,61 +185,4 @@ def manual_attendance(request, section_id, week_number):
         "section": section,
         "week_number": week_number,
         "students": students  # ✅ Pass students to the template
-    })
-
-@login_required(login_url="/users/login/")
-def face_recognition_attendance(request, section_id, week_number):
-    """Handles student attendance using face recognition"""
-    
-    student = request.user
-
-    # ✅ Ensure student is enrolled in this section
-    if not Enrollment.objects.filter(student=student, section_id=section_id).exists():
-        return render(request, "access_denied.html")
-
-    # ✅ Retrieve class session for the given week
-    session = get_object_or_404(ClassSession, section_id=section_id, week_number=week_number)
-
-    if request.method == "POST":
-        # ✅ Get the uploaded face image from the request
-        uploaded_image = request.FILES.get("face_image")
-
-        if uploaded_image:
-            # ✅ Read and process the uploaded image
-            np_image = np.frombuffer(uploaded_image.read(), np.uint8)
-            image = cv2.imdecode(np_image, cv2.IMREAD_COLOR)
-
-            # ✅ Convert image to RGB for face_recognition
-            rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-            # ✅ Detect and encode face
-            face_encodings = face_recognition.face_encodings(rgb_image)
-            
-            if face_encodings:
-                student_encoding = face_encodings[0]
-
-                # ✅ Retrieve stored encoding of the student
-                stored_encodings = student.face_encoding  # Assume stored in User model
-
-                if stored_encodings:
-                    stored_encoding_array = np.array(eval(stored_encodings))  # Convert string to array
-                    match = face_recognition.compare_faces([stored_encoding_array], student_encoding)[0]
-
-                    if match:
-                        # ✅ Mark attendance
-                        Attendance.objects.update_or_create(
-                            student=student,
-                            section_id=section_id,
-                            date=session.date,
-                            week_number=week_number,
-                            defaults={"time_checked_in": now().time(), "status": "Present"}
-                        )
-
-                        return JsonResponse({"status": "success", "message": "Attendance recorded!"})
-
-        return JsonResponse({"status": "error", "message": "Face recognition failed!"})
-
-    return render(request, "attendance/face_recognition_attendance.html", {
-        "section": session.section,
-        "week_number": week_number,
     })
