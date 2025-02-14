@@ -1,9 +1,14 @@
 import qrcode
 import os
 from io import BytesIO
+import face_recognition
+import numpy as np
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import authenticate
 from django.contrib import messages
 from courses.models import Section, Enrollment, ClassSession
 from users.models import User
@@ -186,3 +191,77 @@ def manual_attendance(request, section_id, week_number):
         "week_number": week_number,
         "students": students  # ✅ Pass students to the template
     })
+
+@login_required(login_url='/users/login/')
+def student_manual_checkin(request, section_id, week_number):
+    """Allows students to check-in manually using Matric ID & Password if face recognition fails."""
+    if request.method == "POST":
+        matric_id = request.POST.get("matric_id")
+        password = request.POST.get("password")
+
+        user = authenticate(request, matric_id=matric_id, password=password)
+
+        if user and user.role == "Student":
+            # ✅ Ensure student is enrolled in the section
+            if not Enrollment.objects.filter(student=user, section_id=section_id).exists():
+                return JsonResponse({"status": "error", "message": "You are not enrolled in this section."})
+
+            # ✅ Prevent duplicate attendance records for the same week
+            attendance, created = Attendance.objects.get_or_create(
+                student=user, section_id=section_id, week_number=week_number,
+                defaults={"time_checked_in": now().time(), "status": "Present"}
+            )
+
+            if created:
+                return JsonResponse({"status": "success", "message": "Attendance recorded successfully!"})
+            else:
+                return JsonResponse({"status": "info", "message": "Attendance already recorded."})
+
+        return JsonResponse({"status": "error", "message": "Invalid Matric ID or Password."})
+
+    return JsonResponse({"status": "error", "message": "Invalid request."})
+
+@login_required(login_url='/users/login/')
+def face_recognition_attendance(request, section_id, week_number):
+    """Handles face recognition attendance: Displays UI (GET) & Processes face scan (POST)"""
+    
+    if request.method == "GET":
+        # ✅ Render the face recognition page (so it doesn't return JSON on GET)
+        return render(request, "attendance/face_recognition.html", {
+            "section_id": section_id,
+            "week_number": week_number
+        })
+
+    elif request.method == "POST":
+        face_image = request.FILES.get("face_image")
+        if not face_image:
+            return JsonResponse({"status": "error", "message": "No image received."})
+
+        # ✅ Save temporary image
+        temp_image_path = default_storage.save("temp_face.jpg", ContentFile(face_image.read()))
+        temp_image = face_recognition.load_image_file(default_storage.path(temp_image_path))
+
+        # ✅ Extract face encodings
+        temp_encoding = face_recognition.face_encodings(temp_image)
+        if not temp_encoding:
+            return JsonResponse({"status": "error", "message": "No face detected. Try again."})
+        temp_encoding = temp_encoding[0]
+
+        # ✅ Retrieve stored encoding
+        student = request.user
+        try:
+            student_encoding = FaceEncoding.objects.get(student=student).encoding
+        except FaceEncoding.DoesNotExist:
+            return JsonResponse({"status": "error", "message": "Face data not found. Contact admin."})
+
+        # ✅ Compare face encodings
+        match = face_recognition.compare_faces([np.array(eval(student_encoding))], temp_encoding)[0]
+
+        if match:
+            # ✅ Mark attendance
+            Attendance.objects.get_or_create(student=student, section_id=section_id, week_number=week_number)
+            return JsonResponse({"status": "success", "message": "Attendance recorded!"})
+        else:
+            return JsonResponse({"status": "error", "message": "Face does not match! Please try again."})
+
+    return JsonResponse({"status": "error", "message": "Invalid request."})

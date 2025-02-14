@@ -21,11 +21,13 @@
                 <td>{{ enrollment.section.section_number }}</td>
                 <td>{{ enrollment.section.section_type }}</td>
                 <td>
-                    {% if enrollment.section.schedule %}
-                        {{ enrollment.section.schedule|date:"l, d M Y H:i A" }}
-                    {% else %}
-                        TBA
-                    {% endif %}
+                    {% with enrollment.section.sessions.first as first_session %}
+                        {% if first_session %}
+                            {{ first_session.date|date:"l, d M Y" }} at {{ first_session.start_time|time:"h:i A" }}
+                        {% else %}
+                            <span class="text-danger">TBA</span>
+                        {% endif %}
+                    {% endwith %}
                 </td>
                 <td>
                     <a href="{% url 'change_section' enrollment.section.course.id %}" class="btn btn-primary btn-sm">Change Section</a>

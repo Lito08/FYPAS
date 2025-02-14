@@ -2,110 +2,72 @@
 
 {% block content %}
 <h2>Face Recognition Attendance</h2>
-<p>Hi, {{ student.first_name }}! Please scan your face and blink twice to verify your attendance.</p>
+<p>Scan your face to mark attendance.</p>
 
-<div class="video-container">
-    <video id="video" autoplay></video>
-    <button id="capture" class="btn btn-primary mt-3" disabled>Detecting Liveness...</button>
-</div>
+<!-- ✅ Video Stream for Face Capture -->
+<video id="video" width="640" height="480" autoplay></video>
+<button id="capture-btn" class="btn btn-primary">Capture & Submit</button>
+
+<!-- ✅ Canvas (Hidden) for Image Capture -->
+<canvas id="canvas" width="640" height="480" style="display: none;"></canvas>
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     const video = document.getElementById("video");
-    const captureBtn = document.getElementById("capture");
-    const canvas = document.createElement("canvas");
-    let blinkCount = 0;
-    let lastFrame = null;
-    let livenessConfirmed = false;
+    const canvas = document.getElementById("canvas");
+    const captureBtn = document.getElementById("capture-btn");
 
-    // ✅ Access the camera
-    navigator.mediaDevices.getUserMedia({ video: true })
-        .then(stream => {
-            video.srcObject = stream;
-        })
-        .catch(err => console.error("Camera access error:", err));
+    // ✅ Request camera access
+    navigator.mediaDevices.enumerateDevices().then(devices => {
+        let cameraId = null;
 
-    function detectBlinkAndMotion() {
-        const context = canvas.getContext("2d");
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-        let currentFrame = context.getImageData(0, 0, canvas.width, canvas.height);
-        if (lastFrame) {
-            let diffCount = 0;
-            for (let i = 0; i < currentFrame.data.length; i += 4) {
-                if (Math.abs(currentFrame.data[i] - lastFrame.data[i]) > 25) {
-                    diffCount++;
+        devices.forEach(device => {
+            if (device.kind === "videoinput") {
+                console.log(`Camera Found: ${device.label}`);
+                if (device.label.toLowerCase().includes("ivcam")) {
+                    cameraId = device.deviceId;
                 }
             }
-            if (diffCount > 1000) { // ✅ Adjust threshold for motion
-                blinkCount++;
-                console.log("Blink detected:", blinkCount);
-            }
-        }
-        lastFrame = currentFrame;
+        });
 
-        if (blinkCount >= 2) {
-            livenessConfirmed = true;
-            captureBtn.innerText = "Capture Face";
-            captureBtn.disabled = false;
-        }
+        let constraints = {
+            video: cameraId ? { deviceId: { exact: cameraId } } : true
+        };
 
-        if (!livenessConfirmed) {
-            requestAnimationFrame(detectBlinkAndMotion);
-        }
-    }
-
-    video.addEventListener("play", function () {
-        detectBlinkAndMotion();
+        navigator.mediaDevices.getUserMedia(constraints)
+            .then(stream => { video.srcObject = stream; })
+            .catch(error => {
+                console.error("⚠️ Camera Access Denied:", error);
+                statusMessage.innerText = "⚠️ Webcam access denied!";
+            });
     });
 
-    // ✅ Capture image when the button is clicked
     captureBtn.addEventListener("click", function () {
-        if (!livenessConfirmed) {
-            alert("Liveness detection failed! Please blink twice.");
-            return;
-        }
+        // ✅ Capture image from video
+        const context = canvas.getContext("2d");
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
-
-        // ✅ Convert image to blob and send to backend
+        // ✅ Convert image to Blob
         canvas.toBlob(blob => {
-            let formData = new FormData();
+            const formData = new FormData();
             formData.append("face_image", blob);
 
-            fetch("{% url 'face_recognition_attendance' section_id=section.id week_number=week_number %}", {
+            // ✅ Send image to the backend for recognition
+            fetch("{{ request.path }}", {
                 method: "POST",
-                body: formData,
-                headers: { "X-CSRFToken": "{{ csrf_token }}" }
+                body: formData
             })
             .then(response => response.json())
             .then(data => {
-                alert(data.message);  // ✅ Show response message
+                alert(data.message);
                 if (data.status === "success") {
-                    window.location.href = "{% url 'student_schedule' %}";  // ✅ Redirect on success
+                    window.location.href = "/attendance/records/"; // Redirect if successful
                 }
             })
-            .catch(error => console.error("Error:", error));
+            .catch(error => console.error("Error submitting face:", error));
         }, "image/jpeg");
     });
 });
 </script>
-
-<style>
-.video-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-video {
-    border: 2px solid black;
-    width: 80%;
-    max-width: 500px;
-}
-</style>
 
 {% endblock %}
